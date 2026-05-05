@@ -1,34 +1,66 @@
 "use server";
 
+import { authSchema, type AuthActionState } from "@/lib/auth/validation";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
-export async function signIn(formData: FormData) {
-  const email = String(formData.get("email") ?? "");
-  const password = String(formData.get("password") ?? "");
-  const supabase = await createClient();
+function parseAuthForm(formData: FormData) {
+  return authSchema.safeParse({
+    email: String(formData.get("email") ?? ""),
+    password: String(formData.get("password") ?? ""),
+  });
+}
 
+export async function signIn(
+  _prevState: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const parsed = parseAuthForm(formData);
+
+  if (!parsed.success) {
+    return {
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  const supabase = await createClient();
+  const { email, password } = parsed.data;
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    redirect("/login?message=Invalid%20credentials");
+    return {
+      formError: "Invalid email or password.",
+    };
   }
 
   redirect("/dashboard");
 }
 
-export async function signUp(formData: FormData) {
-  const email = String(formData.get("email") ?? "");
-  const password = String(formData.get("password") ?? "");
-  const supabase = await createClient();
+export async function signUp(
+  _prevState: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const parsed = parseAuthForm(formData);
 
+  if (!parsed.success) {
+    return {
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  const supabase = await createClient();
+  const { email, password } = parsed.data;
   const { error } = await supabase.auth.signUp({ email, password });
 
   if (error) {
-    redirect("/login?message=Could%20not%20create%20account");
+    return {
+      formError: "Could not create account.",
+    };
   }
 
-  redirect("/login?message=Check%20your%20email%20to%20confirm%20your%20account");
+  return {
+    message: "Check your email to confirm your account.",
+  };
 }
 
 export async function signOut() {
