@@ -1,3 +1,4 @@
+import { routes } from "@/lib/routes";
 import { createClient } from "@/lib/supabase/server";
 import { type EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
@@ -7,8 +8,8 @@ export async function GET(request: NextRequest) {
   const code = requestUrl.searchParams.get("code");
   const tokenHash = requestUrl.searchParams.get("token_hash");
   const type = requestUrl.searchParams.get("type") as EmailOtpType | null;
-  const next = requestUrl.searchParams.get("next") ?? "/dashboard";
-  const nextPath = next.startsWith("/") ? next : "/dashboard";
+  const next = requestUrl.searchParams.get("next") ?? routes.app.dashboard;
+  const nextPath = next.startsWith("/") ? next : routes.app.dashboard;
 
   const supabase = await createClient();
 
@@ -32,6 +33,6 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.redirect(
-    new URL("/login?message=Could%20not%20verify%20email%20link", requestUrl.origin),
+    new URL(`${routes.auth.login}?message=Could%20not%20verify%20email%20link`, requestUrl.origin),
   );
 }

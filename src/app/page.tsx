@@ -1,3 +1,4 @@
+import { routes } from "@/lib/routes";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
@@ -8,8 +9,8 @@ export default async function Home() {
   } = await supabase.auth.getUser();
 
   if (user) {
-    redirect("/dashboard");
+    redirect(routes.app.dashboard);
   }
 
-  redirect("/login");
+  redirect(routes.auth.login);
 }

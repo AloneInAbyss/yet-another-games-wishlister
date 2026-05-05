@@ -1,21 +1,29 @@
+import { routeAccess, routes } from "@/lib/routes";
 import { updateSession } from "@/lib/supabase/proxy";
 import { NextResponse, type NextRequest } from "next/server";
+
+function matchesAnyPrefix(pathname: string, prefixes: readonly string[]) {
+  return prefixes.some((prefix) => pathname.startsWith(prefix));
+}
 
 export async function proxy(request: NextRequest) {
   const { user, response } = await updateSession(request);
 
-  const isAuthRoute = request.nextUrl.pathname.startsWith("/login");
-  const isProtectedRoute = request.nextUrl.pathname.startsWith("/dashboard");
+  const isAuthRoute = matchesAnyPrefix(request.nextUrl.pathname, routeAccess.authOnly);
+  const isProtectedRoute = matchesAnyPrefix(
+    request.nextUrl.pathname,
+    routeAccess.protected,
+  );
 
   if (!user && isProtectedRoute) {
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
+    url.pathname = routes.auth.login;
     return NextResponse.redirect(url);
   }
 
   if (user && isAuthRoute) {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = routes.app.dashboard;
     return NextResponse.redirect(url);
   }
 

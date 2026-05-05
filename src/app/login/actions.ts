@@ -1,6 +1,7 @@
 "use server";
 
 import { authSchema, type AuthActionState } from "@/lib/auth/validation";
+import { routes } from "@/lib/routes";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
@@ -33,7 +34,7 @@ export async function signIn(
     };
   }
 
-  redirect("/dashboard");
+  redirect(routes.app.dashboard);
 }
 
 export async function signUp(
@@ -68,5 +69,5 @@ export async function signOut() {
 
   await supabase.auth.signOut();
 
-  redirect("/login");
+  redirect(routes.auth.login);
 }
