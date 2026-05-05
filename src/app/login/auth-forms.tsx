@@ -1,24 +1,25 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+import { initialAuthActionState } from "@/lib/auth/validation";
 import { useActionState } from "react";
 import { signIn, signUp } from "./actions";
-import { initialAuthActionState } from "@/lib/auth/validation";
 
 function SubmitButton({
   label,
   pendingLabel,
   pending,
-  className,
+  variant,
 }: {
   label: string;
   pendingLabel: string;
   pending: boolean;
-  className: string;
+  variant: "default" | "outline";
 }) {
   return (
-    <button type="submit" aria-disabled={pending} disabled={pending} className={className}>
+    <Button type="submit" aria-disabled={pending} disabled={pending} variant={variant}>
       {pending ? pendingLabel : label}
-    </button>
+    </Button>
   );
 }
 
@@ -60,7 +61,7 @@ export function AuthForms({ initialMessage }: { initialMessage?: string }) {
           label="Sign in"
           pendingLabel="Signing in..."
           pending={signInPending}
-          className="rounded-md bg-black px-4 py-2 text-white"
+          variant="default"
         />
       </form>
       <form action={signUpAction} className="flex flex-col gap-3">
@@ -90,7 +91,7 @@ export function AuthForms({ initialMessage }: { initialMessage?: string }) {
           label="Create account"
           pendingLabel="Creating account..."
           pending={signUpPending}
-          className="rounded-md border border-zinc-300 px-4 py-2"
+          variant="outline"
         />
       </form>
       {initialMessage ? <p className="text-sm text-zinc-600">{initialMessage}</p> : null}

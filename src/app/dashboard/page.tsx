@@ -1,4 +1,5 @@
 import { signOut } from "@/app/login/actions";
+import { Button } from "@/components/ui/button";
 import { requireUser } from "@/lib/auth/require-user";
 
 export default async function DashboardPage() {
@@ -9,9 +10,9 @@ export default async function DashboardPage() {
       <h1 className="text-2xl font-semibold">Dashboard</h1>
       <p className="text-zinc-700">Signed in as {user.email}</p>
       <form action={signOut}>
-        <button className="rounded-md border border-zinc-300 px-4 py-2" type="submit">
+        <Button variant="outline" type="submit">
           Sign out
-        </button>
+        </Button>
       </form>
     </main>
   );
