@@ -9,7 +9,7 @@ export default async function LoginPage({
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center gap-6 px-6">
-      <h1 className="text-2xl font-semibold">Login</h1>
+      <h1 className="text-2xl font-semibold">Welcome</h1>
       <AuthForms initialMessage={params.message} />
     </main>
   );

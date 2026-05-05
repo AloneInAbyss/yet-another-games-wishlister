@@ -1,8 +1,17 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { initialAuthActionState } from "@/lib/auth/validation";
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { toast } from "sonner";
 import { signIn, signUp } from "./actions";
 
 function SubmitButton({
@@ -33,68 +42,74 @@ export function AuthForms({ initialMessage }: { initialMessage?: string }) {
     initialAuthActionState,
   );
 
+  useEffect(() => {
+    if (signUpState.message) {
+      toast.warning(signUpState.message);
+    }
+  }, [signUpState.message]);
+
+  useEffect(() => {
+    if (initialMessage) {
+      toast.warning(initialMessage);
+    }
+  }, [initialMessage]);
+
   return (
-    <>
-      <form action={signInAction} className="flex flex-col gap-3">
-        <input
-          name="email"
-          type="email"
-          required
-          placeholder="Email"
-          className="rounded-md border border-zinc-300 px-3 py-2"
-        />
-        {signInState.fieldErrors?.email?.length ? (
-          <p className="text-sm text-red-600">{signInState.fieldErrors.email[0]}</p>
-        ) : null}
-        <input
-          name="password"
-          type="password"
-          required
-          placeholder="Password"
-          className="rounded-md border border-zinc-300 px-3 py-2"
-        />
-        {signInState.fieldErrors?.password?.length ? (
-          <p className="text-sm text-red-600">{signInState.fieldErrors.password[0]}</p>
-        ) : null}
-        {signInState.formError ? <p className="text-sm text-red-600">{signInState.formError}</p> : null}
-        <SubmitButton
-          label="Sign in"
-          pendingLabel="Signing in..."
-          pending={signInPending}
-          variant="default"
-        />
-      </form>
-      <form action={signUpAction} className="flex flex-col gap-3">
-        <input
-          name="email"
-          type="email"
-          required
-          placeholder="Email"
-          className="rounded-md border border-zinc-300 px-3 py-2"
-        />
-        {signUpState.fieldErrors?.email?.length ? (
-          <p className="text-sm text-red-600">{signUpState.fieldErrors.email[0]}</p>
-        ) : null}
-        <input
-          name="password"
-          type="password"
-          required
-          placeholder="Password"
-          className="rounded-md border border-zinc-300 px-3 py-2"
-        />
-        {signUpState.fieldErrors?.password?.length ? (
-          <p className="text-sm text-red-600">{signUpState.fieldErrors.password[0]}</p>
-        ) : null}
-        {signUpState.formError ? <p className="text-sm text-red-600">{signUpState.formError}</p> : null}
-        {signUpState.message ? <p className="text-sm text-zinc-600">{signUpState.message}</p> : null}
-        <SubmitButton
-          label="Create account"
-          pendingLabel="Creating account..."
-          pending={signUpPending}
-          variant="outline"
-        />
-      </form>
-      {initialMessage ? <p className="text-sm text-zinc-600">{initialMessage}</p> : null}
-    </>
+    <div className="flex flex-col gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Sign in</CardTitle>
+          <CardDescription>Access your wishlist dashboard.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={signInAction} className="flex flex-col gap-3">
+            <Input name="email" type="email" required placeholder="Email" />
+            {signInState.fieldErrors?.email?.length ? (
+              <p className="text-sm text-red-600">{signInState.fieldErrors.email[0]}</p>
+            ) : null}
+            <Input name="password" type="password" required placeholder="Password" />
+            {signInState.fieldErrors?.password?.length ? (
+              <p className="text-sm text-red-600">{signInState.fieldErrors.password[0]}</p>
+            ) : null}
+            {signInState.formError ? (
+              <p className="text-sm text-red-600">{signInState.formError}</p>
+            ) : null}
+            <SubmitButton
+              label="Sign in"
+              pendingLabel="Signing in..."
+              pending={signInPending}
+              variant="default"
+            />
+          </form>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Create account</CardTitle>
+          <CardDescription>New here? Create your account.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={signUpAction} className="flex flex-col gap-3">
+            <Input name="email" type="email" required placeholder="Email" />
+            {signUpState.fieldErrors?.email?.length ? (
+              <p className="text-sm text-red-600">{signUpState.fieldErrors.email[0]}</p>
+            ) : null}
+            <Input name="password" type="password" required placeholder="Password" />
+            {signUpState.fieldErrors?.password?.length ? (
+              <p className="text-sm text-red-600">{signUpState.fieldErrors.password[0]}</p>
+            ) : null}
+            {signUpState.formError ? (
+              <p className="text-sm text-red-600">{signUpState.formError}</p>
+            ) : null}
+            <SubmitButton
+              label="Create account"
+              pendingLabel="Creating account..."
+              pending={signUpPending}
+              variant="outline"
+            />
+          </form>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
