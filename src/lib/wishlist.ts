@@ -123,6 +123,20 @@ export async function removeItem(userId: string, id: number) {
   await db.delete(wishlistItems).where(ownItem(userId, id));
 }
 
+/** Puts back an item the user just removed, with its old position, duration and notes. */
+export async function restoreItem(
+  userId: string,
+  data: { appId: number; position: number; durationHours: number | null; notes: string | null; addedAt: Date },
+) {
+  const [{ total }] = await db.select({ total: count() }).from(wishlistItems).where(eq(wishlistItems.userId, userId));
+  if (total >= MAX_ITEMS_PER_LIST) throw new UserError(`Sua lista já tem ${MAX_ITEMS_PER_LIST} jogos.`);
+  // The game may have been dropped from the cache in the meantime.
+  if (!(await ensureGames([data.appId], FRESH_FOR_IMPORT_MS)).has(data.appId)) {
+    throw new UserError("Esse jogo não foi encontrado na Steam.");
+  }
+  await db.insert(wishlistItems).values({ userId, ...data }).onConflictDoNothing();
+}
+
 export async function updateItem(
   userId: string,
   id: number,

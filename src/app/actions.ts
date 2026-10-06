@@ -81,6 +81,21 @@ export async function removeItem(id: number) {
   });
 }
 
+export async function restoreItem(data: {
+  appId: number;
+  position: number;
+  durationHours: number | null;
+  notes: string | null;
+  addedAt: number;
+}) {
+  return run(async (user) => {
+    await enforce("mutate", user.id);
+    const input = parse(v.restoreInput, data);
+    await wishlist.restoreItem(user.id, { ...input, notes: input.notes?.trim() || null, addedAt: new Date(input.addedAt) });
+    return null;
+  });
+}
+
 export async function updateItem(id: number, data: { durationHours: number | null; notes: string | null }) {
   return run(async (user) => {
     await enforce("mutate", user.id);

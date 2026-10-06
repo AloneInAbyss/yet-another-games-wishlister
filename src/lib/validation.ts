@@ -26,6 +26,12 @@ export const itemUpdate = z.object({
   notes: z.string().max(1000, "Notas com no máximo 1.000 caracteres").nullable(),
 });
 
+export const restoreInput = itemUpdate.extend({
+  appId: z.number().int().positive().max(100_000_000),
+  position: z.number(),
+  addedAt: z.number().int().positive().refine((t) => t <= Date.now() + 86_400_000),
+});
+
 export const addGamesInput = z.union([z.string().max(5000), appIds]);
 export const profileInput = z.string().trim().max(200).optional();
 export const searchTerm = z.string().trim().min(2).max(100);

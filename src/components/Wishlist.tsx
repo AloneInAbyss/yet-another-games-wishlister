@@ -56,6 +56,8 @@ export function Wishlist({ entries, owner, isOwner, viewerUsername, steamConnect
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(isOwner && (welcome || openImport));
   const [highlightId, setHighlightId] = useState<number | null>(null);
+  // Games removed during this visit stay on screen (faded) so they can be restored until the page reloads.
+  const [removed, setRemoved] = useState<WishlistEntry[]>([]);
   const [busyIds, setBusyIds] = useState<Set<number>>(new Set());
   const [toast, setToast] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -77,7 +79,13 @@ export function Wishlist({ entries, owner, isOwner, viewerUsername, steamConnect
     return () => clearTimeout(t);
   }, [toast]);
 
-  const visible = useMemo(() => applyFilters([...items], filters), [items, filters]);
+  const removedIds = useMemo(() => new Set(removed.map((e) => e.id)), [removed]);
+  // Removed games keep their old position, so they show up exactly where they were.
+  const visible = useMemo(
+    () => applyFilters([...items.filter((e) => !removedIds.has(e.id)), ...removed], filters),
+    [items, removed, removedIds, filters],
+  );
+  const liveVisible = useMemo(() => visible.filter((e) => !removedIds.has(e.id)), [visible, removedIds]);
   const ranks = useMemo(
     () => new Map([...items].sort((a, b) => a.position - b.position).map((e, i) => [e.id, i + 1])),
     [items],
@@ -95,14 +103,14 @@ export function Wishlist({ entries, owner, isOwner, viewerUsername, steamConnect
     let total = 0;
     let full = 0;
     let onSale = 0;
-    for (const e of visible) {
+    for (const e of liveVisible) {
       if (e.game.priceFinal == null || e.game.isFree) continue;
       total += e.game.priceFinal;
       full += e.game.priceInitial ?? e.game.priceFinal;
       if (e.game.discountPercent > 0) onSale++;
     }
     return { total, full, onSale };
-  }, [visible]);
+  }, [liveVisible]);
 
   const lastUpdate = useMemo(() => {
     const times = items.map((e) => e.game.updatedAt?.getTime() ?? 0);
@@ -123,13 +131,16 @@ export function Wishlist({ entries, owner, isOwner, viewerUsername, steamConnect
     patchFilters({ sort, dir: SORTS[sort].defaultDir });
   }
 
-  async function run(ids: number[], fn: () => Promise<ActionResult>, errorMessage: string) {
+  /** Runs an action, marking the rows as busy and showing errors in a toast. Returns whether it worked. */
+  async function run(ids: number[], fn: () => Promise<ActionResult>, errorMessage: string): Promise<boolean> {
     setBusyIds((s) => new Set([...s, ...ids]));
     try {
       const r = await fn();
       if (!r.ok) setToast(r.error);
+      return r.ok;
     } catch {
       setToast(errorMessage);
+      return false;
     } finally {
       setBusyIds((s) => new Set([...s].filter((id) => !ids.includes(id))));
     }
@@ -150,7 +161,12 @@ export function Wishlist({ entries, owner, isOwner, viewerUsername, steamConnect
     const from = visible.findIndex((e) => e.id === active.id);
     const to = visible.findIndex((e) => e.id === over.id);
     const moved = arrayMove(visible, from, to);
-    placeBetween(Number(active.id), moved[to - 1] ?? null, moved[to + 1] ?? null);
+    // Removed rows are only on screen, not in the database, so they can't be neighbours.
+    const nearestLive = (start: number, step: number) => {
+      for (let i = start; i >= 0 && i < moved.length; i += step) if (!removedIds.has(moved[i].id)) return moved[i];
+      return null;
+    };
+    placeBetween(Number(active.id), nearestLive(to - 1, -1), nearestLive(to + 1, 1));
   }
 
   // After typing a new position, scroll to the game and highlight it briefly.
@@ -186,14 +202,33 @@ export function Wishlist({ entries, owner, isOwner, viewerUsername, steamConnect
       setHighlightId(entry.id);
     },
     onRefresh: (entry) =>
-      startTransition(() => run([entry.id], () => actions.refreshItem(entry.id), "Falha ao atualizar")),
+      startTransition(async () => {
+        await run([entry.id], () => actions.refreshItem(entry.id), "Falha ao atualizar");
+      }),
     onRemove: (entry) => {
-      if (!confirm(`Remover "${entry.game.name}" da lista?`)) return;
+      setRemoved((r) => [...r, entry]);
       startTransition(async () => {
         applyOptimistic({ type: "remove", id: entry.id });
-        await run([entry.id], () => actions.removeItem(entry.id), "Não foi possível remover");
+        const ok = await run([entry.id], () => actions.removeItem(entry.id), "Não foi possível remover");
+        if (!ok) setRemoved((r) => r.filter((e) => e.id !== entry.id));
       });
     },
+    onRestore: (entry) =>
+      startTransition(async () => {
+        const ok = await run(
+          [entry.id],
+          () =>
+            actions.restoreItem({
+              appId: entry.game.appId,
+              position: entry.position,
+              durationHours: entry.durationHours,
+              notes: entry.notes,
+              addedAt: entry.addedAt.getTime(),
+            }),
+          "Não foi possível restaurar",
+        );
+        if (ok) setRemoved((r) => r.filter((e) => e.id !== entry.id));
+      }),
   };
 
   async function copyLink() {
@@ -327,7 +362,7 @@ export function Wishlist({ entries, owner, isOwner, viewerUsername, steamConnect
 
           <div className="mb-3 flex flex-wrap justify-between gap-2 text-xs text-muted">
             <span>
-              {isFiltering(filters) ? `${visible.length} de ${items.length} jogos` : `${visible.length} jogos`}
+              {isFiltering(filters) ? `${liveVisible.length} de ${items.length} jogos` : `${liveVisible.length} jogos`}
               {stats.onSale > 0 && ` · ${stats.onSale} em promoção`}
             </span>
             {stats.total > 0 && (
@@ -344,7 +379,7 @@ export function Wishlist({ entries, owner, isOwner, viewerUsername, steamConnect
             </p>
           )}
 
-          {items.length === 0 ? (
+          {items.length === 0 && removed.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border p-10 text-center text-muted">
               <p>A lista está vazia.</p>
               {isOwner && (
@@ -379,6 +414,7 @@ export function Wishlist({ entries, owner, isOwner, viewerUsername, steamConnect
                       rank={ranks.get(entry.id) ?? 0}
                       total={items.length}
                       highlighted={highlightId === entry.id}
+                      removed={removedIds.has(entry.id)}
                       showRank={filters.sort === "priority"}
                       draggable={canDrag}
                       isOwner={isOwner}

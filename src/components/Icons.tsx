@@ -109,3 +109,9 @@ export const UserIcon = (p: P) => (
     <path d="M4 21a8 8 0 0 1 16 0" />
   </Icon>
 );
+export const UndoIcon = (p: P) => (
+  <Icon {...p}>
+    <path d="M9 14 4 9l5-5" />
+    <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+  </Icon>
+);
