@@ -1,6 +1,6 @@
 # YAGW: Yet Another Games Wishlister
 
-Lista de desejos pessoal de jogos com preços da Steam Brasil atualizados automaticamente,
+Lista de desejos pessoal de jogos com preços da Steam atualizados diariamente,
 filtros customizados, prioridade por arrastar e soltar e link público para compartilhar.
 
 Repositório: https://github.com/AloneInAbyss/yet-another-games-wishlister
@@ -33,19 +33,6 @@ npm run dev                  # http://localhost:3000
 
 Para gerar segredos: `openssl rand -hex 32`.
 
-## Deploy (gratuito): Turso + Vercel
-
-1. **Banco (Turso)**: crie uma conta em https://turso.tech, crie um banco e copie a URL
-   (`libsql://...`) e um token. Aplique o schema:
-   ```bash
-   DATABASE_URL=libsql://... DATABASE_AUTH_TOKEN=... npm run db:push
-   ```
-2. **Código**: suba o repositório para o GitHub.
-3. **Vercel**: importe o repositório em https://vercel.com/new e defina as variáveis de ambiente
-   `ADMIN_PASSWORD`, `SESSION_SECRET`, `DATABASE_URL`, `DATABASE_AUTH_TOKEN` e `CRON_SECRET`.
-   O cron em `vercel.json` roda uma vez por dia (18h UTC, 15h em Brasília, logo depois do horário
-   em que as promoções da Steam costumam começar).
-
 ## Estrutura
 
 - `src/db/schema.ts`: tabelas `games` (cache dos dados da Steam), `wishlist_items` (seus dados:
@@ -55,4 +42,4 @@ Para gerar segredos: `openssl rand -hex 32`.
 - `src/lib/wishlist.ts`: regras de dados (adicionar, reordenar, atualizar preços).
 - `src/lib/filters.ts`: filtros e ordenações (executados no navegador).
 - `src/app/actions.ts`: Server Actions (todas exigem login).
-- `src/app/api/cron/refresh`: endpoint chamado pelo Vercel Cron.
+- `src/app/api/cron/refresh`: endpoint chamado pelo Cron.

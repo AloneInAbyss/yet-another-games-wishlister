@@ -186,9 +186,7 @@ export function Wishlist({ entries, isAdmin, initialFilters }: Props) {
     <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:py-8">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="mb-1 font-mono text-xs font-semibold tracking-widest text-accent" title="Yet Another Games Wishlister">
-            YAGW
-          </p>
+          <p className="mb-1 text-sm font-semibold text-accent">Yet Another Games Wishlister</p>
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Lista de desejos</h1>
           <p className="mt-1 text-sm text-muted">
             {items.length} jogo{items.length === 1 ? "" : "s"}
