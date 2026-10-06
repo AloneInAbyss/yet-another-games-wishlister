@@ -42,14 +42,12 @@ em produção a rota sempre responde 404).
 
 - Mudou o schema? `npm run db:generate` cria uma migração nova em `drizzle/` e `npm run db:migrate`
   aplica. Não use `drizzle-kit push` em bancos com dados.
-- `scripts/migrate-to-multiuser.mts`: migração única do formato antigo (dono único) para o atual.
-  Instruções no topo do arquivo.
 
 ## Estrutura
 
 - `src/db/schema.ts`: `users`, `accounts` (Steam), `sessions`, `wishlist_items` (dados de cada
-  pessoa), `games` (cache dos dados da Steam compartilhado entre todas as listas), `price_history`,
-  `steam_tags`, `rate_limits` e `app_state`.
+  pessoa), `games` (cache dos dados da Steam compartilhado entre todas as listas), `steam_tags`,
+  `rate_limits` e `app_state`.
 - `src/lib/steam.ts`: chamadas à Steam (busca, dados em lote de até 100 jogos, tags, wishlist, perfil).
 - `src/lib/steam-client.ts`: por onde passam todas as chamadas à Steam. Limita o volume, tenta de novo
   quando a Steam limita e pausa tudo por alguns minutos se ela continuar recusando.

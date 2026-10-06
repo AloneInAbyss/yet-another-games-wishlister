@@ -25,7 +25,6 @@ export const accounts = sqliteTable(
       .references(() => users.id, { onDelete: "cascade" }),
     provider: text("provider", { enum: ["steam", "dev"] }).notNull(),
     providerAccountId: text("provider_account_id").notNull(),
-    email: text("email"),
     createdAt: integer("created_at", { mode: "timestamp" })
       .notNull()
       .default(sql`(unixepoch())`),
@@ -63,7 +62,6 @@ export const games = sqliteTable("games", {
   priceInitial: integer("price_initial"),
   priceFinal: integer("price_final"),
   discountPercent: integer("discount_percent").notNull().default(0),
-  lowestPriceSeen: integer("lowest_price_seen"),
   comingSoon: integer("coming_soon", { mode: "boolean" }).notNull().default(false),
   releaseDateText: text("release_date_text"),
   // ISO date (yyyy-mm-dd), used for sorting. Vague dates resolve to the start of their period.
@@ -96,22 +94,6 @@ export const wishlistItems = sqliteTable(
     uniqueIndex("wishlist_items_user_app_idx").on(t.userId, t.appId),
     index("wishlist_items_user_position_idx").on(t.userId, t.position),
   ],
-);
-
-export const priceHistory = sqliteTable(
-  "price_history",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    appId: integer("app_id")
-      .notNull()
-      .references(() => games.appId, { onDelete: "cascade" }),
-    priceFinal: integer("price_final").notNull(),
-    discountPercent: integer("discount_percent").notNull(),
-    recordedAt: integer("recorded_at", { mode: "timestamp" })
-      .notNull()
-      .default(sql`(unixepoch())`),
-  },
-  (t) => [index("price_history_app_recorded_idx").on(t.appId, t.recordedAt)],
 );
 
 /** Names of Steam tags in Portuguese, refreshed when an unknown tag shows up. */

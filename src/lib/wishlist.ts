@@ -1,7 +1,7 @@
 import "server-only";
 import { and, asc, count, eq, inArray, isNull, lt, max, min, notInArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { games, priceHistory, sessions, wishlistItems, type Game } from "@/db/schema";
+import { games, sessions, wishlistItems, type Game } from "@/db/schema";
 import { SteamUnavailableError, UserError } from "./errors";
 import { pruneRateLimits } from "./rate-limit";
 import { fetchItems, fetchWishlist, type StoreItem } from "./steam";
@@ -36,35 +36,14 @@ export async function getWishlist(userId: string): Promise<WishlistEntry[]> {
   }));
 }
 
-/** Upserts store data and records price changes / the lowest price seen. */
+/** Upserts store data into the shared games cache. */
 async function saveItems(items: StoreItem[]) {
   if (!items.length) return;
-  const previous = new Map(
-    (await db.select().from(games).where(inArray(games.appId, items.map((i) => i.appId)))).map((g) => [g.appId, g]),
-  );
   const now = new Date();
-  const statements = items.flatMap((item) => {
-    const prev = previous.get(item.appId);
-    const lowest =
-      item.priceFinal == null
-        ? (prev?.lowestPriceSeen ?? null)
-        : Math.min(item.priceFinal, prev?.lowestPriceSeen ?? Infinity);
-    const values = { ...item, lowestPriceSeen: lowest, updatedAt: now };
-    const upsert = db.insert(games).values(values).onConflictDoUpdate({ target: games.appId, set: values });
-    const priceChanged = item.priceFinal != null && item.priceFinal !== prev?.priceFinal;
-    return priceChanged
-      ? [
-          upsert,
-          db.insert(priceHistory).values({
-            appId: item.appId,
-            priceFinal: item.priceFinal!,
-            discountPercent: item.discountPercent,
-            recordedAt: now,
-          }),
-        ]
-      : [upsert];
+  const [first, ...rest] = items.map((item) => {
+    const values = { ...item, updatedAt: now };
+    return db.insert(games).values(values).onConflictDoUpdate({ target: games.appId, set: values });
   });
-  const [first, ...rest] = statements;
   await db.batch([first, ...rest]);
 }
 
@@ -210,10 +189,10 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * pause between them, stopping before `deadline`. Leftovers are picked up the next day.
  */
 export async function refreshForCron(deadline: number) {
-  // Drop cached games (and their price history) that no list uses anymore.
-  const used = db.select({ appId: wishlistItems.appId }).from(wishlistItems);
-  await db.delete(priceHistory).where(notInArray(priceHistory.appId, used));
-  await db.delete(games).where(notInArray(games.appId, used));
+  // Drop cached games that no list uses anymore.
+  await db.delete(games).where(
+    notInArray(games.appId, db.select({ appId: wishlistItems.appId }).from(wishlistItems)),
+  );
   await db.delete(sessions).where(lt(sessions.expiresAt, new Date()));
   await pruneRateLimits();
 
