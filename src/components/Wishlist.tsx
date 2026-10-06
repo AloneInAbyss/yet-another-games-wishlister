@@ -55,6 +55,7 @@ export function Wishlist({ entries, owner, isOwner, viewerUsername, steamConnect
   const [editing, setEditing] = useState<WishlistEntry | null>(null);
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(isOwner && (welcome || openImport));
+  const [highlightId, setHighlightId] = useState<number | null>(null);
   const [busyIds, setBusyIds] = useState<Set<number>>(new Set());
   const [toast, setToast] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -134,14 +135,8 @@ export function Wishlist({ entries, owner, isOwner, viewerUsername, steamConnect
     }
   }
 
-  function onDragEnd({ active, over }: DragEndEvent) {
-    if (!over || active.id === over.id) return;
-    const from = visible.findIndex((e) => e.id === active.id);
-    const to = visible.findIndex((e) => e.id === over.id);
-    const moved = arrayMove(visible, from, to);
-    const prev = moved[to - 1] ?? null;
-    const next = moved[to + 1] ?? null;
-    const id = Number(active.id);
+  /** Moves an item between two neighbours (same rule as the server) with an optimistic update. */
+  function placeBetween(id: number, prev: WishlistEntry | null, next: WishlistEntry | null) {
     const position =
       prev && next ? (prev.position + next.position) / 2 : prev ? prev.position + 1 : next ? next.position - 1 : 0;
     startTransition(async () => {
@@ -149,6 +144,27 @@ export function Wishlist({ entries, owner, isOwner, viewerUsername, steamConnect
       await run([id], () => actions.moveItem(id, prev?.id ?? null, next?.id ?? null), "Não foi possível reordenar");
     });
   }
+
+  function onDragEnd({ active, over }: DragEndEvent) {
+    if (!over || active.id === over.id) return;
+    const from = visible.findIndex((e) => e.id === active.id);
+    const to = visible.findIndex((e) => e.id === over.id);
+    const moved = arrayMove(visible, from, to);
+    placeBetween(Number(active.id), moved[to - 1] ?? null, moved[to + 1] ?? null);
+  }
+
+  // After typing a new position, scroll to the game and highlight it briefly.
+  useEffect(() => {
+    if (highlightId == null) return;
+    const frame = requestAnimationFrame(() =>
+      document.getElementById(`item-${highlightId}`)?.scrollIntoView({ behavior: "smooth", block: "center" }),
+    );
+    const timer = setTimeout(() => setHighlightId(null), 1600);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+    };
+  }, [highlightId]);
 
   const rowActions: RowActions = {
     onEdit: setEditing,
@@ -158,6 +174,16 @@ export function Wishlist({ entries, owner, isOwner, viewerUsername, steamConnect
         applyOptimistic({ type: "move", id: entry.id, position: first - 1 });
         await run([entry.id], () => actions.moveItemToTop(entry.id), "Não foi possível mover");
       });
+    },
+    onSetRank: (entry, rank) => {
+      // Ranks are global (over the whole list), even when filters hide some games.
+      const ordered = [...items].sort((a, b) => a.position - b.position);
+      const from = ordered.findIndex((e) => e.id === entry.id);
+      const to = Math.min(Math.max(rank, 1), ordered.length) - 1;
+      if (from < 0 || from === to) return;
+      const moved = arrayMove(ordered, from, to);
+      placeBetween(entry.id, moved[to - 1] ?? null, moved[to + 1] ?? null);
+      setHighlightId(entry.id);
     },
     onRefresh: (entry) =>
       startTransition(() => run([entry.id], () => actions.refreshItem(entry.id), "Falha ao atualizar")),
@@ -312,9 +338,9 @@ export function Wishlist({ entries, owner, isOwner, viewerUsername, steamConnect
             )}
           </div>
 
-          {isOwner && !canDrag && visible.length > 1 && (
+          {isOwner && filters.sort !== "priority" && visible.length > 1 && (
             <p className="mb-3 text-xs text-muted">
-              Para arrastar e definir a prioridade, ordene por <strong>Prioridade</strong> (crescente).
+              Para arrastar ou digitar a posição dos jogos, ordene por <strong>Prioridade</strong>.
             </p>
           )}
 
@@ -351,6 +377,8 @@ export function Wishlist({ entries, owner, isOwner, viewerUsername, steamConnect
                       key={entry.id}
                       entry={entry}
                       rank={ranks.get(entry.id) ?? 0}
+                      total={items.length}
+                      highlighted={highlightId === entry.id}
                       showRank={filters.sort === "priority"}
                       draggable={canDrag}
                       isOwner={isOwner}
