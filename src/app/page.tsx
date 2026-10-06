@@ -18,7 +18,7 @@ const FEATURES = [
   },
   {
     title: "Preços atualizados",
-    text: "Preços da Steam Brasil todo dia, com destaque para promoções e o menor preço já visto.",
+    text: "Preços da Steam Brasil atualizados todo dia, com destaque para os jogos em promoção.",
   },
 ];
 
