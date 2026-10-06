@@ -1,7 +1,9 @@
-# Steam Wishlister
+# YAGW: Yet Another Games Wishlister
 
 Lista de desejos pessoal de jogos com preços da Steam Brasil atualizados automaticamente,
 filtros customizados, prioridade por arrastar e soltar e link público para compartilhar.
+
+Repositório: https://github.com/AloneInAbyss/yet-another-games-wishlister
 
 ## Como funciona
 

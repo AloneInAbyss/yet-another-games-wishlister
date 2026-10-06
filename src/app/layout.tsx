@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Steam Wishlister",
+  title: "YAGW · Yet Another Games Wishlister",
   description: "Minha lista de desejos de jogos, com preços da Steam atualizados",
 };
 

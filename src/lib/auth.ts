@@ -2,7 +2,7 @@ import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 
-const COOKIE = "wishlister_session";
+const COOKIE = "yagw_session";
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 90;
 
 function secret(): string {
