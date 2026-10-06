@@ -97,3 +97,16 @@ export const FilterIcon = (p: P) => (
     <path d="M3 5h18l-7 8v6l-4 1v-7Z" />
   </Icon>
 );
+export const GamepadIcon = (p: P) => (
+  <Icon {...p}>
+    <path d="M6 11h4M8 9v4" />
+    <path d="M15 12h.01M18 10h.01" />
+    <path d="M17.3 5H6.7a4 4 0 0 0-4 3.6l-.7 6.2A3 3 0 0 0 5 18c1 0 1.9-.5 2.4-1.3L9 14h6l1.6 2.7c.5.8 1.4 1.3 2.4 1.3a3 3 0 0 0 3-3.2l-.7-6.2A4 4 0 0 0 17.3 5Z" />
+  </Icon>
+);
+export const UserIcon = (p: P) => (
+  <Icon {...p}>
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 21a8 8 0 0 1 16 0" />
+  </Icon>
+);

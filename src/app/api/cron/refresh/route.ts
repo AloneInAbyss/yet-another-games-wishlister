@@ -1,5 +1,5 @@
 import { revalidatePath } from "next/cache";
-import { refreshAllPrices, refreshStaleDetails } from "@/lib/wishlist";
+import { refreshForCron } from "@/lib/wishlist";
 
 export const maxDuration = 300;
 
@@ -9,8 +9,7 @@ export async function GET(request: Request) {
   if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
     return Response.json({ error: "Não autorizado" }, { status: 401 });
   }
-  const prices = await refreshAllPrices();
-  const details = await refreshStaleDetails(40);
-  revalidatePath("/");
-  return Response.json({ prices, details });
+  const result = await refreshForCron(Date.now() + 250_000);
+  revalidatePath("/u/[username]", "page");
+  return Response.json(result);
 }

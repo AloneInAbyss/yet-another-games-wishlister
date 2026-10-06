@@ -15,16 +15,29 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSo
 import Link from "next/link";
 import { useEffect, useMemo, useOptimistic, useState, useTransition } from "react";
 import * as actions from "@/app/actions";
+import type { ActionResult } from "@/app/actions";
 import { applyFilters, filtersToSearch, isFiltering, SORTS, type Filters, type SortKey } from "@/lib/filters";
-import { formatPrice } from "@/lib/format";
+import { EARLY_ACCESS_TAG_ID, formatPrice } from "@/lib/format";
 import type { WishlistEntry } from "@/lib/wishlist";
 import { AddGamesDialog } from "./AddGamesDialog";
 import { EditItemDialog } from "./EditItemDialog";
+import { ImportSteamDialog } from "./ImportSteamDialog";
 import { FilterPanel } from "./FilterPanel";
 import { GameRow, type RowActions } from "./GameRow";
-import { FilterIcon, LinkIcon, PlusIcon, RefreshIcon, SearchIcon, SortIcon } from "./Icons";
+import { FilterIcon, LinkIcon, PlusIcon, SearchIcon, SortIcon, GamepadIcon } from "./Icons";
 
-type Props = { entries: WishlistEntry[]; isAdmin: boolean; initialFilters: Filters };
+export type ListOwner = { username: string; displayName: string; avatarUrl: string | null; listPublic: boolean };
+
+type Props = {
+  entries: WishlistEntry[];
+  owner: ListOwner;
+  isOwner: boolean;
+  viewerUsername: string | null;
+  steamConnected: boolean;
+  initialFilters: Filters;
+  welcome: boolean;
+  openImport: boolean;
+};
 
 type OptimisticChange = { type: "move"; id: number; position: number } | { type: "remove"; id: number };
 
@@ -36,14 +49,14 @@ const updatedFormat = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "America/Sao_Paulo",
 });
 
-export function Wishlist({ entries, isAdmin, initialFilters }: Props) {
+export function Wishlist({ entries, owner, isOwner, viewerUsername, steamConnected, initialFilters, welcome, openImport }: Props) {
   const [filters, setFilters] = useState(initialFilters);
   const [showFilters, setShowFilters] = useState(false);
   const [editing, setEditing] = useState<WishlistEntry | null>(null);
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(isOwner && (welcome || openImport));
   const [busyIds, setBusyIds] = useState<Set<number>>(new Set());
   const [toast, setToast] = useState<string | null>(null);
-  const [refreshing, startRefresh] = useTransition();
   const [, startTransition] = useTransition();
 
   const [items, applyOptimistic] = useOptimistic(entries, (state: WishlistEntry[], change: OptimisticChange) =>
@@ -68,11 +81,13 @@ export function Wishlist({ entries, isAdmin, initialFilters }: Props) {
     () => new Map([...items].sort((a, b) => a.position - b.position).map((e, i) => [e.id, i + 1])),
     [items],
   );
-  const genres = useMemo(() => {
+  const tags = useMemo(() => {
     const counts = new Map<string, number>();
     for (const e of items)
-      for (const g of e.game.genres) if (g.id !== "70") counts.set(g.description, (counts.get(g.description) ?? 0) + 1);
-    return [...counts].map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+      for (const t of e.game.tags) if (t.id !== EARLY_ACCESS_TAG_ID) counts.set(t.name, (counts.get(t.name) ?? 0) + 1);
+    return [...counts]
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "pt-BR"));
   }, [items]);
 
   const stats = useMemo(() => {
@@ -89,12 +104,12 @@ export function Wishlist({ entries, isAdmin, initialFilters }: Props) {
   }, [visible]);
 
   const lastUpdate = useMemo(() => {
-    const times = items.map((e) => e.game.priceUpdatedAt?.getTime() ?? 0);
+    const times = items.map((e) => e.game.updatedAt?.getTime() ?? 0);
     const max = Math.max(0, ...times);
     return max ? new Date(max) : null;
   }, [items]);
 
-  const canDrag = isAdmin && filters.sort === "priority" && filters.dir === "asc";
+  const canDrag = isOwner && filters.sort === "priority" && filters.dir === "asc";
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
@@ -107,10 +122,11 @@ export function Wishlist({ entries, isAdmin, initialFilters }: Props) {
     patchFilters({ sort, dir: SORTS[sort].defaultDir });
   }
 
-  async function run(ids: number[], fn: () => Promise<unknown>, errorMessage: string) {
+  async function run(ids: number[], fn: () => Promise<ActionResult>, errorMessage: string) {
     setBusyIds((s) => new Set([...s, ...ids]));
     try {
-      await fn();
+      const r = await fn();
+      if (!r.ok) setToast(r.error);
     } catch {
       setToast(errorMessage);
     } finally {
@@ -144,7 +160,7 @@ export function Wishlist({ entries, isAdmin, initialFilters }: Props) {
       });
     },
     onRefresh: (entry) =>
-      startTransition(() => run([entry.id], () => actions.refreshGame(entry.game.appId), "Falha ao atualizar")),
+      startTransition(() => run([entry.id], () => actions.refreshItem(entry.id), "Falha ao atualizar")),
     onRemove: (entry) => {
       if (!confirm(`Remover "${entry.game.name}" da lista?`)) return;
       startTransition(async () => {
@@ -153,17 +169,6 @@ export function Wishlist({ entries, isAdmin, initialFilters }: Props) {
       });
     },
   };
-
-  function refreshPrices() {
-    startRefresh(async () => {
-      try {
-        const n = await actions.refreshPrices();
-        setToast(`Preços atualizados (${n} jogos)`);
-      } catch {
-        setToast("Falha ao atualizar preços");
-      }
-    });
-  }
 
   async function copyLink() {
     await navigator.clipboard.writeText(window.location.href);
@@ -176,7 +181,7 @@ export function Wishlist({ entries, isAdmin, initialFilters }: Props) {
     filters.minReview,
     filters.earlyAccess !== "any",
     filters.release !== "any",
-    filters.genres.length,
+    filters.tags.length,
   ].filter(Boolean).length;
 
   const buttonClass =
@@ -185,23 +190,39 @@ export function Wishlist({ entries, isAdmin, initialFilters }: Props) {
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:py-8">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="mb-1 text-sm font-semibold text-accent">Yet Another Games Wishlister</p>
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Lista de desejos</h1>
-          <p className="mt-1 text-sm text-muted">
-            {items.length} jogo{items.length === 1 ? "" : "s"}
-            {lastUpdate && ` · preços da Steam Brasil de ${updatedFormat.format(lastUpdate)}`}
-          </p>
+        <div className="min-w-0">
+          <Link href="/" className="mb-1 block text-sm font-semibold text-accent hover:underline">
+            Yet Another Games Wishlister
+          </Link>
+          <div className="flex items-center gap-3">
+            {owner.avatarUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={owner.avatarUrl} alt="" className="size-10 shrink-0 rounded-full bg-surface-3 sm:size-12" />
+            )}
+            <div className="min-w-0">
+              <h1 className="truncate text-2xl font-semibold tracking-tight sm:text-3xl">
+                {isOwner ? "Minha lista de desejos" : `Lista de desejos de ${owner.displayName}`}
+              </h1>
+              <p className="mt-0.5 text-sm text-muted">
+                {items.length} jogo{items.length === 1 ? "" : "s"}
+                {lastUpdate && ` · preços da Steam de ${updatedFormat.format(lastUpdate)}`}
+                {isOwner && !owner.listPublic && (
+                  <span className="ml-2 rounded bg-surface-3 px-1.5 py-px text-xs">Privada</span>
+                )}
+              </p>
+            </div>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={copyLink} className={buttonClass}>
-            <LinkIcon /> Copiar link
-          </button>
-          {isAdmin ? (
+          {owner.listPublic && (
+            <button type="button" onClick={copyLink} className={buttonClass}>
+              <LinkIcon /> Copiar link
+            </button>
+          )}
+          {isOwner ? (
             <>
-              <button type="button" onClick={refreshPrices} disabled={refreshing} className={buttonClass}>
-                <RefreshIcon className={refreshing ? "animate-spin" : ""} />
-                {refreshing ? "Atualizando…" : "Atualizar preços"}
+              <button type="button" onClick={() => setImporting(true)} className={buttonClass}>
+                <GamepadIcon /> Importar da Steam
               </button>
               <button
                 type="button"
@@ -210,13 +231,20 @@ export function Wishlist({ entries, isAdmin, initialFilters }: Props) {
               >
                 <PlusIcon /> Adicionar jogos
               </button>
+              <Link href="/settings" className="px-2 py-1.5 text-sm text-muted hover:text-text">
+                Configurações
+              </Link>
               <form action={actions.logout}>
                 <button className="px-2 py-1.5 text-sm text-muted hover:text-text">Sair</button>
               </form>
             </>
+          ) : viewerUsername ? (
+            <Link href={`/u/${viewerUsername}`} className="px-2 py-1.5 text-sm text-muted hover:text-text">
+              Minha lista
+            </Link>
           ) : (
-            <Link href="/login" className="px-2 py-1.5 text-sm text-muted hover:text-text">
-              Entrar
+            <Link href="/login" className="px-2 py-1.5 text-sm text-accent hover:underline">
+              Criar minha lista
             </Link>
           )}
         </div>
@@ -226,7 +254,7 @@ export function Wishlist({ entries, isAdmin, initialFilters }: Props) {
         <aside
           className={`${showFilters ? "block" : "hidden"} rounded-xl border border-border bg-surface p-4 lg:sticky lg:top-6 lg:block lg:w-64 lg:shrink-0`}
         >
-          <FilterPanel filters={filters} onChange={patchFilters} genres={genres} />
+          <FilterPanel filters={filters} onChange={patchFilters} tags={tags} />
         </aside>
 
         <main className="min-w-0 flex-1">
@@ -284,7 +312,7 @@ export function Wishlist({ entries, isAdmin, initialFilters }: Props) {
             )}
           </div>
 
-          {isAdmin && !canDrag && visible.length > 1 && (
+          {isOwner && !canDrag && visible.length > 1 && (
             <p className="mb-3 text-xs text-muted">
               Para arrastar e definir a prioridade, ordene por <strong>Prioridade</strong> (crescente).
             </p>
@@ -293,10 +321,15 @@ export function Wishlist({ entries, isAdmin, initialFilters }: Props) {
           {items.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border p-10 text-center text-muted">
               <p>A lista está vazia.</p>
-              {isAdmin && (
-                <button type="button" onClick={() => setAdding(true)} className="mt-3 text-accent hover:underline">
-                  Adicionar o primeiro jogo
-                </button>
+              {isOwner && (
+                <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-2">
+                  <button type="button" onClick={() => setImporting(true)} className="text-accent hover:underline">
+                    Importar da Steam
+                  </button>
+                  <button type="button" onClick={() => setAdding(true)} className="text-accent hover:underline">
+                    Adicionar jogos manualmente
+                  </button>
+                </div>
               )}
             </div>
           ) : visible.length === 0 ? (
@@ -320,7 +353,7 @@ export function Wishlist({ entries, isAdmin, initialFilters }: Props) {
                       rank={ranks.get(entry.id) ?? 0}
                       showRank={filters.sort === "priority"}
                       draggable={canDrag}
-                      isAdmin={isAdmin}
+                      isOwner={isOwner}
                       busy={busyIds.has(entry.id)}
                       actions={rowActions}
                     />
@@ -333,6 +366,9 @@ export function Wishlist({ entries, isAdmin, initialFilters }: Props) {
       </div>
 
       {adding && <AddGamesDialog existing={new Set(items.map((e) => e.game.appId))} onClose={() => setAdding(false)} />}
+      {importing && (
+        <ImportSteamDialog steamConnected={steamConnected} welcome={welcome} onClose={() => setImporting(false)} />
+      )}
       {editing && <EditItemDialog entry={editing} onClose={() => setEditing(null)} />}
       {toast && (
         <div

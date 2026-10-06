@@ -3,14 +3,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Game } from "@/db/schema";
-import {
-  formatHours,
-  formatPrice,
-  reviewLabel,
-  reviewPercent,
-  reviewTone,
-  storeUrl,
-} from "@/lib/format";
+import { EARLY_ACCESS_TAG_ID, formatHours, formatPrice, reviewLabel, reviewTone, storeUrl } from "@/lib/format";
 import type { WishlistEntry } from "@/lib/wishlist";
 import { ClockIcon, GripIcon, PencilIcon, RefreshIcon, TopIcon, TrashIcon } from "./Icons";
 
@@ -26,7 +19,7 @@ type Props = {
   rank: number;
   showRank: boolean;
   draggable: boolean;
-  isAdmin: boolean;
+  isOwner: boolean;
   busy: boolean;
   actions: RowActions;
 };
@@ -38,21 +31,12 @@ const toneClass = {
   none: "text-muted",
 } as const;
 
-const dateFormat = new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
-
-function releaseLabel(game: Game): string | null {
-  // Exact dates are reformatted; vague ones ("4º trimestre de 2026", "Em breve") are shown as Steam writes them.
-  if (game.releaseDate && game.releaseDateText && /^\d{1,2}\//.test(game.releaseDateText)) {
-    return dateFormat.format(new Date(`${game.releaseDate}T00:00:00Z`));
-  }
-  return game.releaseDateText;
-}
+const TAGS_IN_ROW = 5;
 
 function Price({ game }: { game: Game }) {
   if (game.isFree) return <span className="text-sm">Gratuito</span>;
   if (game.priceFinal == null) {
-    const label = !game.availableInRegion ? "Indisponível no Brasil" : game.comingSoon ? "Em breve" : "Sem preço";
-    return <span className="text-sm text-muted">{label}</span>;
+    return <span className="text-sm text-muted">{game.comingSoon ? "Em breve" : "Sem preço"}</span>;
   }
   const lowest = game.lowestPriceSeen;
   return (
@@ -99,14 +83,14 @@ function IconButton({ label, onClick, danger, children }: { label: string; onCli
   );
 }
 
-export function GameRow({ entry, rank, showRank, draggable, isAdmin, busy, actions }: Props) {
+export function GameRow({ entry, rank, showRank, draggable, isOwner, busy, actions }: Props) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: entry.id,
     disabled: !draggable,
   });
   const { game } = entry;
-  const pct = reviewPercent(game);
-  const release = releaseLabel(game);
+  const pct = game.reviewPercent;
+  const release = game.releaseDateText;
 
   return (
     <li
@@ -167,7 +151,7 @@ export function GameRow({ entry, rank, showRank, draggable, isAdmin, busy, actio
           </div>
 
           <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted">
-            <span className={toneClass[reviewTone(game.reviewScore)]} title={game.reviewTotal ? `${game.reviewPositive?.toLocaleString("pt-BR")} de ${game.reviewTotal.toLocaleString("pt-BR")} avaliações positivas` : undefined}>
+            <span className={toneClass[reviewTone(game.reviewScore)]}>
               {reviewLabel(game)}
               {pct != null && ` · ${pct}%`}
               {game.reviewTotal ? <span className="text-muted"> ({game.reviewTotal.toLocaleString("pt-BR")})</span> : null}
@@ -179,7 +163,7 @@ export function GameRow({ entry, rank, showRank, draggable, isAdmin, busy, actio
                 {formatHours(entry.durationHours)}
               </span>
             ) : (
-              isAdmin && (
+              isOwner && (
                 <button type="button" onClick={() => actions.onEdit(entry)} className="hover:text-text">
                   + duração
                 </button>
@@ -188,11 +172,12 @@ export function GameRow({ entry, rank, showRank, draggable, isAdmin, busy, actio
           </div>
 
           <div className="hidden flex-wrap gap-1 sm:flex">
-            {game.genres
-              .filter((g) => g.id !== "70")
-              .map((g) => (
-                <span key={g.id} className="rounded bg-surface-3 px-1.5 py-px text-[11px] text-muted">
-                  {g.description}
+            {game.tags
+              .filter((t) => t.id !== EARLY_ACCESS_TAG_ID)
+              .slice(0, TAGS_IN_ROW)
+              .map((t) => (
+                <span key={t.id} className="rounded bg-surface-3 px-1.5 py-px text-[11px] text-muted">
+                  {t.name}
                 </span>
               ))}
           </div>
@@ -202,7 +187,7 @@ export function GameRow({ entry, rank, showRank, draggable, isAdmin, busy, actio
 
         <div className="flex items-center justify-between gap-2 sm:justify-end">
           <Price game={game} />
-          {isAdmin && (
+          {isOwner && (
             <div className="flex items-center sm:opacity-0 sm:transition-opacity sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
               <IconButton label="Editar duração e notas" onClick={() => actions.onEdit(entry)}>
                 <PencilIcon />

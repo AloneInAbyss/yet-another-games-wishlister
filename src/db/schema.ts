@@ -1,46 +1,88 @@
 import { sql } from "drizzle-orm";
-import { index, integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
-export type Genre = { id: string; description: string };
+export type Tag = { id: number; name: string };
+
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey(),
+  // Chosen during onboarding; null until then.
+  username: text("username").unique(),
+  displayName: text("display_name").notNull(),
+  avatarUrl: text("avatar_url"),
+  listPublic: integer("list_public", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+/** Login providers linked to a user (one per provider). */
+export const accounts = sqliteTable(
+  "accounts",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    provider: text("provider", { enum: ["steam", "google", "dev"] }).notNull(),
+    providerAccountId: text("provider_account_id").notNull(),
+    email: text("email"),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [
+    uniqueIndex("accounts_provider_account_idx").on(t.provider, t.providerAccountId),
+    uniqueIndex("accounts_user_provider_idx").on(t.userId, t.provider),
+  ],
+);
+
+export const sessions = sqliteTable(
+  "sessions",
+  {
+    // SHA-256 of the token stored in the cookie; the token itself is never stored.
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+  },
+  (t) => [index("sessions_user_idx").on(t.userId)],
+);
 
 /** Cache of Steam store data, shared by every list that contains the game. */
 export const games = sqliteTable("games", {
   appId: integer("app_id").primaryKey(),
   name: text("name").notNull(),
-  type: text("type"),
-  headerImage: text("header_image"),
   capsuleImage: text("capsule_image"),
-  shortDescription: text("short_description"),
-  genres: text("genres", { mode: "json" }).$type<Genre[]>().notNull().default([]),
+  headerImage: text("header_image"),
+  // The most relevant Steam user tags, already translated.
+  tags: text("tags", { mode: "json" }).$type<Tag[]>().notNull().default([]),
   isEarlyAccess: integer("is_early_access", { mode: "boolean" }).notNull().default(false),
   isFree: integer("is_free", { mode: "boolean" }).notNull().default(false),
-  // False when the game cannot be bought in the Brazilian store.
-  availableInRegion: integer("available_in_region", { mode: "boolean" }).notNull().default(true),
-  currency: text("currency"),
-  // Prices are in cents (e.g. 1849 = R$ 18,49). Null when there is no price yet.
+  // Prices are in cents (e.g. 1849 = R$ 18,49). Null when there is no price.
   priceInitial: integer("price_initial"),
   priceFinal: integer("price_final"),
   discountPercent: integer("discount_percent").notNull().default(0),
   lowestPriceSeen: integer("lowest_price_seen"),
   comingSoon: integer("coming_soon", { mode: "boolean" }).notNull().default(false),
   releaseDateText: text("release_date_text"),
-  // ISO date (yyyy-mm-dd) parsed from releaseDateText, used for sorting.
+  // ISO date (yyyy-mm-dd), used for sorting. Vague dates resolve to the start of their period.
   releaseDate: text("release_date"),
   reviewScore: integer("review_score"),
-  reviewPositive: integer("review_positive"),
+  reviewPercent: integer("review_percent"),
   reviewTotal: integer("review_total"),
-  detailsUpdatedAt: integer("details_updated_at", { mode: "timestamp" }),
-  priceUpdatedAt: integer("price_updated_at", { mode: "timestamp" }),
+  updatedAt: integer("updated_at", { mode: "timestamp" }),
 });
 
-/** Personal entries of the wishlist. */
 export const wishlistItems = sqliteTable(
   "wishlist_items",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
     appId: integer("app_id")
       .notNull()
-      .unique()
       .references(() => games.appId, { onDelete: "cascade" }),
     // Lower position = higher priority. Real numbers allow inserting between two items.
     position: real("position").notNull(),
@@ -50,7 +92,10 @@ export const wishlistItems = sqliteTable(
       .notNull()
       .default(sql`(unixepoch())`),
   },
-  (t) => [index("wishlist_items_position_idx").on(t.position)],
+  (t) => [
+    uniqueIndex("wishlist_items_user_app_idx").on(t.userId, t.appId),
+    index("wishlist_items_user_position_idx").on(t.userId, t.position),
+  ],
 );
 
 export const priceHistory = sqliteTable(
@@ -66,8 +111,28 @@ export const priceHistory = sqliteTable(
       .notNull()
       .default(sql`(unixepoch())`),
   },
-  (t) => [index("price_history_app_idx").on(t.appId, t.recordedAt)],
+  (t) => [index("price_history_app_recorded_idx").on(t.appId, t.recordedAt)],
 );
 
+/** Names of Steam tags in Portuguese, refreshed when an unknown tag shows up. */
+export const steamTags = sqliteTable("steam_tags", {
+  id: integer("id").primaryKey(),
+  name: text("name").notNull(),
+});
+
+/** Fixed-window counters shared by every server instance. resetAt is a unix timestamp in seconds. */
+export const rateLimits = sqliteTable("rate_limits", {
+  key: text("key").primaryKey(),
+  count: integer("count").notNull(),
+  resetAt: integer("reset_at").notNull(),
+});
+
+/** Small key/value store for global flags (e.g. the Steam circuit breaker). */
+export const appState = sqliteTable("app_state", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+});
+
+export type User = typeof users.$inferSelect;
 export type Game = typeof games.$inferSelect;
 export type WishlistItem = typeof wishlistItems.$inferSelect;

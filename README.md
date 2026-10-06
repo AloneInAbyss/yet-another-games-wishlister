@@ -1,45 +1,62 @@
 # YAGW: Yet Another Games Wishlister
 
-Lista de desejos pessoal de jogos com preços da Steam atualizados diariamente,
-filtros customizados, prioridade por arrastar e soltar e link público para compartilhar.
+Listas de desejos de jogos com preços da Steam atualizados diariamente, filtros customizados,
+prioridade por arrastar e soltar e link público para compartilhar.
 
 Repositório: https://github.com/AloneInAbyss/yet-another-games-wishlister
 
 ## Como funciona
 
-- **Cadastro**: no botão "Adicionar jogos", busque pelo nome ou cole um ou vários links da loja
-  (`store.steampowered.com/app/...`). Os dados (preço em R$, desconto, gêneros, acesso antecipado,
-  data de lançamento e avaliações) vêm da Steam.
-- **Seus campos**: duração (horas) e notas, editáveis pelo ícone de lápis. O diálogo tem um atalho
-  para o HowLongToBeat.
+- **Contas**: entrar com a Steam ou com o Google, sem senha. No primeiro acesso a pessoa escolhe
+  o endereço da lista (`/u/<nome>`). Em "Configurações" dá para trocar o nome, deixar a lista privada,
+  conectar a outra forma de entrar e excluir a conta.
+- **Importar da Steam**: soma a wishlist da Steam (da conta conectada ou de um link de perfil) ao fim
+  da lista, na ordem da Steam, sem remover nada. A wishlist precisa estar pública.
+- **Adicionar jogos**: buscar pelo nome ou colar um ou vários links da loja
+  (`store.steampowered.com/app/...`). Preço em R$, desconto, tags, acesso antecipado, lançamento e
+  avaliações vêm da Steam.
+- **Seus campos**: duração (horas) e notas, pelo ícone de lápis, com atalho para o HowLongToBeat.
 - **Prioridade**: com a ordenação "Prioridade", arraste os jogos pela alça à esquerda ou use
   "Mover para o topo".
 - **Filtros**: faixa de preço, só em promoção, % mínima de avaliações positivas, acesso antecipado,
-  lançados/em breve, gêneros e busca por nome. O estado dos filtros fica na URL, então "Copiar link"
-  compartilha exatamente a visão filtrada.
-- **Preços**: um cron diário atualiza todos os preços (e os detalhes completos de 40 jogos por vez,
-  em rodízio). Também há o botão "Atualizar preços" e o ícone de atualizar por jogo. O app guarda o
-  histórico de preços e mostra o menor preço registrado.
-- **Acesso**: qualquer pessoa com o link vê a lista; só quem entra com a senha (`/login`) edita.
+  lançados/em breve, tags da Steam (todas ou qualquer uma) e busca por nome. O estado dos filtros fica
+  na URL, então "Copiar link" compartilha exatamente a visão filtrada.
+- **Preços**: um cron diário atualiza todos os jogos e guarda o histórico de preços (menor preço visto).
 
 ## Rodando localmente
 
 ```bash
 npm install
-cp .env.example .env.local   # preencha ADMIN_PASSWORD, SESSION_SECRET e CRON_SECRET
-npm run db:push              # cria as tabelas no banco SQLite local (local.db)
+cp .env.example .env.local   # preencha CRON_SECRET (e, se quiser, as chaves do Google)
+npm run db:migrate           # cria/atualiza as tabelas no banco SQLite local (local.db)
 npm run dev                  # http://localhost:3000
 ```
 
-Para gerar segredos: `openssl rand -hex 32`.
+Para gerar segredos: `openssl rand -hex 32`. O login com a Steam funciona em localhost sem
+configuração. Sem `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`, o botão do Google não aparece.
+
+Para testes automatizados, `ALLOW_DEV_LOGIN=1` libera `/api/auth/dev?name=<nome>` (só com `npm run dev`;
+em produção a rota sempre responde 404).
+
+### Banco de dados
+
+- Mudou o schema? `npm run db:generate` cria uma migração nova em `drizzle/` e `npm run db:migrate`
+  aplica. Não use `drizzle-kit push` em bancos com dados.
+- `scripts/migrate-to-multiuser.mts`: migração única do formato antigo (dono único) para o atual.
+  Instruções no topo do arquivo.
 
 ## Estrutura
 
-- `src/db/schema.ts`: tabelas `games` (cache dos dados da Steam), `wishlist_items` (seus dados:
-  posição, duração, notas) e `price_history`. A separação facilita ter vários usuários no futuro:
-  basta adicionar um `user_id` em `wishlist_items`.
-- `src/lib/steam.ts`: chamadas à loja da Steam (busca, detalhes, preços em lote, avaliações).
-- `src/lib/wishlist.ts`: regras de dados (adicionar, reordenar, atualizar preços).
+- `src/db/schema.ts`: `users`, `accounts` (Steam/Google), `sessions`, `wishlist_items` (dados de cada
+  pessoa), `games` (cache dos dados da Steam compartilhado entre todas as listas), `price_history`,
+  `steam_tags`, `rate_limits` e `app_state`.
+- `src/lib/steam.ts`: chamadas à Steam (busca, dados em lote de até 100 jogos, tags, wishlist, perfil).
+- `src/lib/steam-client.ts`: por onde passam todas as chamadas à Steam. Limita o volume, tenta de novo
+  quando a Steam limita e pausa tudo por alguns minutos se ela continuar recusando.
+- `src/lib/rate-limit.ts`: limites por usuário/IP (busca, importação, login, cadastro…).
+- `src/lib/auth.ts`, `src/lib/accounts.ts`, `src/lib/oauth.ts`: sessões e login Steam (OpenID) / Google.
+- `src/lib/wishlist.ts`: regras de dados da lista. Toda alteração é restrita ao dono.
+- `src/lib/validation.ts`: validação de entrada (zod) e limites (500 jogos por lista).
 - `src/lib/filters.ts`: filtros e ordenações (executados no navegador).
-- `src/app/actions.ts`: Server Actions (todas exigem login).
+- `src/app/actions.ts`: Server Actions (todas exigem login e devolvem mensagens amigáveis).
 - `src/app/api/cron/refresh`: endpoint chamado pelo Cron.

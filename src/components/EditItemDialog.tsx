@@ -18,7 +18,8 @@ export function EditItemDialog({ entry, onClose }: { entry: WishlistEntry; onClo
     if (hours != null && (!Number.isFinite(hours) || hours < 0)) return setError("Duração inválida");
     startTransition(async () => {
       try {
-        await updateItem(entry.id, { durationHours: hours, notes });
+        const r = await updateItem(entry.id, { durationHours: hours, notes });
+        if (!r.ok) return setError(r.error);
         onClose();
       } catch {
         setError("Não foi possível salvar");
@@ -54,6 +55,7 @@ export function EditItemDialog({ entry, onClose }: { entry: WishlistEntry; onClo
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
+            maxLength={1000}
             placeholder="Ex.: jogar em coop com fulano, esperar abaixo de R$ 30…"
             className="w-full resize-y rounded-md border border-border bg-bg px-3 py-2 text-sm outline-none focus:border-accent"
           />

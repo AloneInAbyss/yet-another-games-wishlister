@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { addGames } from "@/app/actions";
-import { formatPrice } from "@/lib/format";
-import { parseAppIds, type SearchResult } from "@/lib/steam";
+import { describeAddResult, formatPrice } from "@/lib/format";
+import { parseAppIds } from "@/lib/app-ids";
+import type { SearchResult } from "@/lib/steam";
 import { SearchIcon } from "./Icons";
 import { Modal } from "./Modal";
 
@@ -48,12 +49,9 @@ export function AddGamesDialog({ existing, onClose }: { existing: Set<number>; o
     startTransition(async () => {
       try {
         const r = await addGames(ids);
-        setAdded((s) => new Set([...s, ...ids.filter((id) => !r.failed.includes(id))]));
-        const parts = [];
-        if (r.added) parts.push(`${r.added} adicionado${r.added > 1 ? "s" : ""}`);
-        if (r.skipped) parts.push(`${r.skipped} já estava${r.skipped > 1 ? "m" : ""} na lista`);
-        if (r.failed.length) parts.push(`${r.failed.length} não encontrado${r.failed.length > 1 ? "s" : ""} na Steam`);
-        setMessage(parts.join(" · "));
+        if (!r.ok) return setMessage(r.error);
+        if (!r.data.notFound && !r.data.overLimit) setAdded((s) => new Set([...s, ...ids]));
+        setMessage(describeAddResult(r.data));
         if (linkIds.length) setQuery("");
       } catch {
         setMessage("Não foi possível adicionar");

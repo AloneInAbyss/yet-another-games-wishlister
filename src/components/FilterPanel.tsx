@@ -1,13 +1,15 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { DEFAULT_FILTERS, isFiltering, type Filters, type ReleaseFilter, type TriState } from "@/lib/filters";
+import { useState, type ReactNode } from "react";
+import { DEFAULT_FILTERS, isFiltering, type Filters, type ReleaseFilter, type TagMode, type TriState } from "@/lib/filters";
 
 type Props = {
   filters: Filters;
   onChange: (patch: Partial<Filters>) => void;
-  genres: { name: string; count: number }[];
+  tags: { name: string; count: number }[];
 };
+
+const TOP_TAGS = 15;
 
 const inputClass =
   "w-full rounded-md border border-border bg-bg px-2.5 py-1.5 text-sm outline-none placeholder:text-muted/60 focus:border-accent";
@@ -62,11 +64,14 @@ function Segmented<T extends string>({
   );
 }
 
-export function FilterPanel({ filters, onChange, genres }: Props) {
-  const toggleGenre = (name: string) =>
-    onChange({
-      genres: filters.genres.includes(name) ? filters.genres.filter((g) => g !== name) : [...filters.genres, name],
-    });
+export function FilterPanel({ filters, onChange, tags }: Props) {
+  const [showAllTags, setShowAllTags] = useState(false);
+  const toggleTag = (name: string) =>
+    onChange({ tags: filters.tags.includes(name) ? filters.tags.filter((t) => t !== name) : [...filters.tags, name] });
+  // Most frequent tags first; selected ones always stay visible.
+  const visibleTags = showAllTags
+    ? [...tags].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+    : tags.filter((t, i) => i < TOP_TAGS || filters.tags.includes(t.name));
 
   return (
     <div className="space-y-6">
@@ -159,15 +164,34 @@ export function FilterPanel({ filters, onChange, genres }: Props) {
         />
       </Section>
 
-      <Section title="Gêneros">
-        {genres.length === 0 && <p className="text-sm text-muted">Nenhum gênero ainda.</p>}
+      <Section title="Tags">
+        {tags.length === 0 && <p className="text-sm text-muted">Nenhuma tag ainda.</p>}
+        {filters.tags.length > 1 && (
+          <Segmented<TagMode>
+            value={filters.tagMode}
+            onChange={(tagMode) => onChange({ tagMode })}
+            options={[
+              { value: "all", label: "Todas as tags" },
+              { value: "any", label: "Qualquer uma" },
+            ]}
+          />
+        )}
         <div className="flex flex-wrap gap-1.5">
-          {genres.map((g) => (
-            <Chip key={g.name} active={filters.genres.includes(g.name)} onClick={() => toggleGenre(g.name)}>
-              {g.name} <span className="opacity-60">{g.count}</span>
+          {visibleTags.map((t) => (
+            <Chip key={t.name} active={filters.tags.includes(t.name)} onClick={() => toggleTag(t.name)}>
+              {t.name} <span className="opacity-60">{t.count}</span>
             </Chip>
           ))}
         </div>
+        {tags.length > TOP_TAGS && (
+          <button
+            type="button"
+            onClick={() => setShowAllTags((s) => !s)}
+            className="text-xs text-accent hover:underline"
+          >
+            {showAllTags ? "Mostrar só as mais comuns" : `Ver todas (${tags.length})`}
+          </button>
+        )}
       </Section>
 
       {isFiltering(filters) && (

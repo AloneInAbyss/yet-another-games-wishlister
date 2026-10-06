@@ -1,5 +1,4 @@
 import type { WishlistEntry } from "./wishlist";
-import { reviewPercent } from "./format";
 
 export const SORTS = {
   priority: { label: "Prioridade", defaultDir: "asc" },
@@ -16,12 +15,14 @@ export type SortKey = keyof typeof SORTS;
 export type SortDir = "asc" | "desc";
 export type TriState = "any" | "only" | "exclude";
 export type ReleaseFilter = "any" | "released" | "upcoming";
+export type TagMode = "all" | "any";
 
 export type Filters = {
   q: string;
   priceMin: string;
   priceMax: string;
-  genres: string[];
+  tags: string[];
+  tagMode: TagMode;
   minReview: string;
   earlyAccess: TriState;
   onSale: boolean;
@@ -34,7 +35,8 @@ export const DEFAULT_FILTERS: Filters = {
   q: "",
   priceMin: "",
   priceMax: "",
-  genres: [],
+  tags: [],
+  tagMode: "all",
   minReview: "",
   earlyAccess: "any",
   onSale: false,
@@ -68,11 +70,12 @@ export function applyFilters(entries: WishlistEntry[], f: Filters): WishlistEntr
       if (min != null && price < min * 100) return false;
       if (max != null && price > max * 100) return false;
     }
-    if (f.genres.length && !g.genres.some((gen) => f.genres.includes(gen.description))) return false;
-    if (minReview != null) {
-      const pct = reviewPercent(g);
-      if (pct == null || pct < minReview) return false;
+    if (f.tags.length) {
+      const names = new Set(g.tags.map((t) => t.name));
+      const matches = f.tagMode === "all" ? f.tags.every((t) => names.has(t)) : f.tags.some((t) => names.has(t));
+      if (!matches) return false;
     }
+    if (minReview != null && (g.reviewPercent == null || g.reviewPercent < minReview)) return false;
     if (f.earlyAccess === "only" && !g.isEarlyAccess) return false;
     if (f.earlyAccess === "exclude" && g.isEarlyAccess) return false;
     if (f.onSale && g.discountPercent <= 0) return false;
@@ -98,11 +101,8 @@ const sortValue: Record<SortKey, (e: WishlistEntry) => number | string | null> =
   price: effectivePrice,
   discount: (e) => e.game.discountPercent,
   duration: (e) => e.durationHours,
-  reviews: (e) => {
-    const pct = reviewPercent(e.game);
-    // Ties on percentage are broken by number of reviews.
-    return pct == null ? null : pct * 1e9 + (e.game.reviewTotal ?? 0);
-  },
+  // Ties on percentage are broken by number of reviews.
+  reviews: (e) => (e.game.reviewPercent == null ? null : e.game.reviewPercent * 1e9 + (e.game.reviewTotal ?? 0)),
   release: (e) => e.game.releaseDate,
   name: (e) => e.game.name,
   added: (e) => e.addedAt.getTime(),
@@ -113,7 +113,7 @@ export function isFiltering(f: Filters): boolean {
     f.q !== "" ||
     f.priceMin !== "" ||
     f.priceMax !== "" ||
-    f.genres.length > 0 ||
+    f.tags.length > 0 ||
     f.minReview !== "" ||
     f.earlyAccess !== "any" ||
     f.onSale ||
@@ -131,7 +131,8 @@ export function filtersFromParams(params: Record<string, string | string[] | und
     q: get("q"),
     priceMin: get("min"),
     priceMax: get("max"),
-    genres: get("genres") ? get("genres").split("|") : [],
+    tags: get("tags") ? get("tags").split("|").slice(0, 20) : [],
+    tagMode: get("tm") === "any" ? "any" : "all",
     minReview: get("review"),
     earlyAccess: tri(get("ea")),
     onSale: get("sale") === "1",
@@ -146,7 +147,8 @@ export function filtersToSearch(f: Filters): string {
   if (f.q) p.set("q", f.q);
   if (f.priceMin) p.set("min", f.priceMin);
   if (f.priceMax) p.set("max", f.priceMax);
-  if (f.genres.length) p.set("genres", f.genres.join("|"));
+  if (f.tags.length) p.set("tags", f.tags.join("|"));
+  if (f.tagMode !== "all") p.set("tm", f.tagMode);
   if (f.minReview) p.set("review", f.minReview);
   if (f.earlyAccess !== "any") p.set("ea", f.earlyAccess);
   if (f.onSale) p.set("sale", "1");
