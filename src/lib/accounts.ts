@@ -14,7 +14,6 @@ export type ProviderProfile = {
   providerAccountId: string;
   displayName: string;
   avatarUrl: string | null;
-  email?: string | null;
 };
 
 export const homePath = (user: Pick<User, "username">) => (user.username ? `/u/${user.username}` : "/onboarding");
@@ -45,7 +44,6 @@ export async function signInWithProvider(profile: ProviderProfile, ip: string): 
       userId: current.id,
       provider: profile.provider,
       providerAccountId: profile.providerAccountId,
-      email: profile.email ?? null,
     });
     if (!current.avatarUrl && profile.avatarUrl) {
       await db.update(users).set({ avatarUrl: profile.avatarUrl }).where(eq(users.id, current.id));
@@ -65,15 +63,10 @@ export async function signInWithProvider(profile: ProviderProfile, ip: string): 
       userId,
       provider: profile.provider,
       providerAccountId: profile.providerAccountId,
-      email: profile.email ?? null,
     }),
   ]);
   await createSession(userId);
   return "/onboarding";
-}
-
-export async function getLinkedAccounts(userId: string) {
-  return db.select().from(accounts).where(eq(accounts.userId, userId));
 }
 
 export async function getSteamId(userId: string): Promise<string | null> {
@@ -81,12 +74,6 @@ export async function getSteamId(userId: string): Promise<string | null> {
     where: and(eq(accounts.userId, userId), eq(accounts.provider, "steam")),
   });
   return row?.providerAccountId ?? null;
-}
-
-export async function unlinkAccount(userId: string, provider: Provider) {
-  const linked = await getLinkedAccounts(userId);
-  if (linked.length <= 1) throw new UserError("Mantenha pelo menos uma forma de entrar na conta.");
-  await db.delete(accounts).where(and(eq(accounts.userId, userId), eq(accounts.provider, provider)));
 }
 
 export async function isUsernameTaken(username: string, exceptUserId?: string): Promise<boolean> {

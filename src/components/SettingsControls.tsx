@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { deleteAccount, setListVisibility, unlinkAccount } from "@/app/actions";
-import type { Provider } from "@/lib/accounts";
+import { deleteAccount, setListVisibility } from "@/app/actions";
 
 export function VisibilityToggle({ listPublic }: { listPublic: boolean }) {
   const [pending, startTransition] = useTransition();
@@ -33,29 +32,6 @@ export function VisibilityToggle({ listPublic }: { listPublic: boolean }) {
       </label>
       {error && <p className="text-sm text-danger">{error}</p>}
     </div>
-  );
-}
-
-export function UnlinkButton({ provider }: { provider: Provider }) {
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-  return (
-    <span className="flex flex-col items-end">
-      <button
-        type="button"
-        disabled={pending}
-        onClick={() =>
-          startTransition(async () => {
-            const r = await unlinkAccount(provider);
-            setError(r.ok ? null : r.error);
-          })
-        }
-        className="text-sm text-muted hover:text-danger disabled:opacity-60"
-      >
-        Desconectar
-      </button>
-      {error && <span className="text-xs text-danger">{error}</span>}
-    </span>
   );
 }
 

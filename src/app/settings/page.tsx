@@ -2,25 +2,18 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { SteamIcon } from "@/components/Icons";
-import { DeleteAccount, UnlinkButton, VisibilityToggle } from "@/components/SettingsControls";
+import { DeleteAccount, VisibilityToggle } from "@/components/SettingsControls";
 import { UsernameForm } from "@/components/UsernameForm";
-import { getLinkedAccounts, type Provider } from "@/lib/accounts";
+import { getSteamId } from "@/lib/accounts";
 import { getCurrentUser } from "@/lib/auth";
-import { isGoogleConfigured } from "@/lib/oauth";
 
 export const metadata = { title: "Configurações · YAGW", robots: { index: false } };
 
 const MESSAGES: Record<string, string> = {
   "linked=steam": "Conta Steam conectada.",
-  "linked=google": "Conta Google conectada.",
   "error=account_in_use": "Essa conta já está ligada a outro usuário do YAGW.",
-  "error=provider_already_linked": "Você já tem uma conta desse tipo conectada. Desconecte-a antes.",
+  "error=provider_already_linked": "Você já tem uma conta Steam conectada.",
 };
-
-const PROVIDERS: { id: Provider; label: string; href: string }[] = [
-  { id: "steam", label: "Steam", href: "/api/auth/steam" },
-  { id: "google", label: "Google", href: "/api/auth/google" },
-];
 
 function Card({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -35,11 +28,10 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (!user.username) redirect("/onboarding");
-  const [linked, params] = await Promise.all([getLinkedAccounts(user.id), searchParams]);
+  const [steamId, params] = await Promise.all([getSteamId(user.id), searchParams]);
   const messageKey = Object.entries(params)
     .map(([k, v]) => `${k}=${v}`)
     .find((k) => k in MESSAGES);
-  const providers = PROVIDERS.filter((p) => p.id !== "google" || isGoogleConfigured() || linked.some((a) => a.provider === "google"));
 
   return (
     <main className="mx-auto w-full max-w-2xl space-y-4 px-4 py-8">
@@ -66,28 +58,29 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
         <VisibilityToggle listPublic={user.listPublic} />
       </Card>
 
-      <Card title="Formas de entrar">
-        <ul className="divide-y divide-border">
-          {providers.map((p) => {
-            const account = linked.find((a) => a.provider === p.id);
-            return (
-              <li key={p.id} className="flex items-center justify-between gap-4 py-2 text-sm">
-                <span className="flex items-center gap-2">
-                  {p.id === "steam" && <SteamIcon />}
-                  {p.label}
-                  {account && <span className="text-muted">{account.email ?? "conectada"}</span>}
-                </span>
-                {account ? (
-                  linked.length > 1 && <UnlinkButton provider={p.id} />
-                ) : (
-                  <a href={p.href} className="text-accent hover:underline">
-                    Conectar
-                  </a>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+      <Card title="Conta Steam">
+        <div className="flex items-center justify-between gap-4 text-sm">
+          <span className="flex items-center gap-2">
+            <SteamIcon />
+            {steamId ? (
+              <a
+                href={`https://steamcommunity.com/profiles/${steamId}`}
+                target="_blank"
+                rel="noreferrer"
+                className="hover:text-accent"
+              >
+                Conectada
+              </a>
+            ) : (
+              "Não conectada"
+            )}
+          </span>
+          {!steamId && (
+            <a href="/api/auth/steam" className="text-accent hover:underline">
+              Conectar
+            </a>
+          )}
+        </div>
         <p className="text-xs text-muted">
           Com a Steam conectada, você importa sua wishlist com um clique (ela precisa estar pública).{" "}
           <Link href={`/u/${user.username}?import=1`} className="text-accent hover:underline">

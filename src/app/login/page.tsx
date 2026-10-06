@@ -6,8 +6,6 @@ import { getCurrentUser } from "@/lib/auth";
 
 const ERRORS: Record<string, string> = {
   steam: "Não foi possível confirmar o login com a Steam. Tente de novo.",
-  google: "Não foi possível confirmar o login com o Google. Tente de novo.",
-  google_unavailable: "O login com o Google ainda não está disponível.",
   rate_limited: "Muitas tentativas seguidas. Espere alguns minutos e tente de novo.",
   failed: "Algo deu errado ao entrar. Tente de novo.",
 };

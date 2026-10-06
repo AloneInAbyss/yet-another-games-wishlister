@@ -1,6 +1,5 @@
 import "server-only";
 import { cookies } from "next/headers";
-import { Google } from "arctic";
 import { clientIp } from "./auth";
 import { RateLimitError } from "./errors";
 import { signInWithProvider, type ProviderProfile } from "./accounts";
@@ -52,12 +51,3 @@ export async function finishLogin(request: Request, profile: ProviderProfile): P
     return redirectTo(request, "/login?error=failed");
   }
 }
-
-export function googleClient(request: Request): Google | null {
-  const id = process.env.GOOGLE_CLIENT_ID;
-  const secret = process.env.GOOGLE_CLIENT_SECRET;
-  if (!id || !secret) return null;
-  return new Google(id, secret, new URL("/api/auth/google/callback", request.url).toString());
-}
-
-export const isGoogleConfigured = () => !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);

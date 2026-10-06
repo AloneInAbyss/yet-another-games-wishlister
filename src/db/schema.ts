@@ -15,7 +15,7 @@ export const users = sqliteTable("users", {
     .default(sql`(unixepoch())`),
 });
 
-/** Login providers linked to a user (one per provider). */
+/** Login providers linked to a user (Steam; "dev" only exists in local tests). */
 export const accounts = sqliteTable(
   "accounts",
   {
@@ -23,7 +23,7 @@ export const accounts = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    provider: text("provider", { enum: ["steam", "google", "dev"] }).notNull(),
+    provider: text("provider", { enum: ["steam", "dev"] }).notNull(),
     providerAccountId: text("provider_account_id").notNull(),
     email: text("email"),
     createdAt: integer("created_at", { mode: "timestamp" })

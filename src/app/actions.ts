@@ -140,14 +140,6 @@ export async function setListVisibility(listPublic: boolean) {
   });
 }
 
-export async function unlinkAccount(provider: accounts.Provider) {
-  return run(async (user) => {
-    await accounts.unlinkAccount(user.id, parse(v.provider, provider));
-    revalidatePath("/settings");
-    return null;
-  });
-}
-
 export async function deleteAccount(confirmation: string) {
   const result = await run(async (user) => {
     if (confirmation.trim().toLowerCase() !== (user.username ?? "excluir")) {

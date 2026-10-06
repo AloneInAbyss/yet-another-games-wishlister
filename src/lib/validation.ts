@@ -9,7 +9,6 @@ const RESERVED_USERNAMES = new Set([
   "undefined", "me", "new", "static", "_next",
 ]);
 
-export const provider = z.enum(["steam", "google", "dev"]);
 export const itemId = z.number().int().positive();
 export const appIds = z.array(z.number().int().positive().max(100_000_000)).min(1).max(MAX_IDS_PER_ADD);
 
