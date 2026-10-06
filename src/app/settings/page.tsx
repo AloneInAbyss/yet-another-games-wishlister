@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
+import { SteamIcon } from "@/components/Icons";
 import { DeleteAccount, UnlinkButton, VisibilityToggle } from "@/components/SettingsControls";
 import { UsernameForm } from "@/components/UsernameForm";
 import { getLinkedAccounts, type Provider } from "@/lib/accounts";
@@ -71,9 +72,10 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
             const account = linked.find((a) => a.provider === p.id);
             return (
               <li key={p.id} className="flex items-center justify-between gap-4 py-2 text-sm">
-                <span>
+                <span className="flex items-center gap-2">
+                  {p.id === "steam" && <SteamIcon />}
                   {p.label}
-                  {account && <span className="ml-2 text-muted">{account.email ?? "conectada"}</span>}
+                  {account && <span className="text-muted">{account.email ?? "conectada"}</span>}
                 </span>
                 {account ? (
                   linked.length > 1 && <UnlinkButton provider={p.id} />

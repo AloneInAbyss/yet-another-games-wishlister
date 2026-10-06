@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { importSteamWishlist } from "@/app/actions";
 import { describeAddResult } from "@/lib/format";
+import { SteamIcon } from "./Icons";
 import { Modal } from "./Modal";
 
 type Props = { steamConnected: boolean; welcome?: boolean; onClose: () => void };
@@ -41,8 +42,9 @@ export function ImportSteamDialog({ steamConnected, welcome, onClose }: Props) {
             type="button"
             disabled={pending}
             onClick={() => runImport()}
-            className="w-full rounded-md bg-accent-strong py-2 text-sm font-medium text-white hover:brightness-110 disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-md bg-accent-strong py-2 text-sm font-medium text-white hover:brightness-110 disabled:opacity-60"
           >
+            <SteamIcon />
             {pending ? "Importando…" : "Importar da minha conta Steam"}
           </button>
         )}

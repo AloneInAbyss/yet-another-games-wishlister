@@ -24,7 +24,7 @@ import { EditItemDialog } from "./EditItemDialog";
 import { ImportSteamDialog } from "./ImportSteamDialog";
 import { FilterPanel } from "./FilterPanel";
 import { GameRow, type RowActions } from "./GameRow";
-import { FilterIcon, LinkIcon, PlusIcon, SearchIcon, SortIcon, GamepadIcon } from "./Icons";
+import { FilterIcon, LinkIcon, PlusIcon, SearchIcon, SortIcon, SteamIcon } from "./Icons";
 
 export type ListOwner = { username: string; displayName: string; avatarUrl: string | null; listPublic: boolean };
 
@@ -222,7 +222,7 @@ export function Wishlist({ entries, owner, isOwner, viewerUsername, steamConnect
           {isOwner ? (
             <>
               <button type="button" onClick={() => setImporting(true)} className={buttonClass}>
-                <GamepadIcon /> Importar da Steam
+                <SteamIcon /> Importar da Steam
               </button>
               <button
                 type="button"
