@@ -21,7 +21,7 @@ Repositório: https://github.com/AloneInAbyss/yet-another-games-wishlister
 - **Filtros**: faixa de preço, só em promoção, % mínima de avaliações positivas, acesso antecipado,
   lançados/em breve, tags da Steam (todas ou qualquer uma) e busca por nome. O estado dos filtros fica
   na URL, então "Copiar link" compartilha exatamente a visão filtrada.
-- **Preços**: um cron diário atualiza todos os jogos e guarda o histórico de preços (menor preço visto).
+- **Preços**: um cron diário atualiza os dados de todos os jogos.
 
 ## Rodando localmente
 

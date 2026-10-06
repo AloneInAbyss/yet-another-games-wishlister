@@ -97,33 +97,25 @@ function Price({ game }: { game: Game }) {
   if (game.priceFinal == null) {
     return <span className="text-sm text-muted">{game.comingSoon ? "Em breve" : "Sem preço"}</span>;
   }
-  const lowest = game.lowestPriceSeen;
   return (
-    <div className="flex flex-col items-end gap-0.5">
-      <div className="flex items-stretch overflow-hidden rounded">
-        {game.discountPercent > 0 && (
-          <span className="flex items-center bg-sale-bg px-1.5 text-base font-semibold text-sale-text">
-            -{game.discountPercent}%
-          </span>
-        )}
-        <div
-          className={`flex flex-col items-end justify-center px-2 py-0.5 leading-tight ${
-            game.discountPercent > 0 ? "bg-sale-bg/40" : "bg-surface-3"
-          }`}
-        >
-          {game.discountPercent > 0 && game.priceInitial != null && (
-            <span className="text-[11px] text-muted line-through">{formatPrice(game.priceInitial)}</span>
-          )}
-          <span className={`text-sm ${game.discountPercent > 0 ? "text-sale-text" : ""}`}>
-            {formatPrice(game.priceFinal)}
-          </span>
-        </div>
-      </div>
-      {lowest != null && lowest < game.priceFinal && (
-        <span className="text-[11px] text-muted" title="Menor preço registrado desde que o jogo entrou na lista">
-          menor: {formatPrice(lowest)}
+    <div className="flex items-stretch overflow-hidden rounded">
+      {game.discountPercent > 0 && (
+        <span className="flex items-center bg-sale-bg px-1.5 text-base font-semibold text-sale-text">
+          -{game.discountPercent}%
         </span>
       )}
+      <div
+        className={`flex flex-col items-end justify-center px-2 py-0.5 leading-tight ${
+          game.discountPercent > 0 ? "bg-sale-bg/40" : "bg-surface-3"
+        }`}
+      >
+        {game.discountPercent > 0 && game.priceInitial != null && (
+          <span className="text-[11px] text-muted line-through">{formatPrice(game.priceInitial)}</span>
+        )}
+        <span className={`text-sm ${game.discountPercent > 0 ? "text-sale-text" : ""}`}>
+          {formatPrice(game.priceFinal)}
+        </span>
+      </div>
     </div>
   );
 }
