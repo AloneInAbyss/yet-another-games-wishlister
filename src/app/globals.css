@@ -1,26 +1,54 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #0b1118;
+  --surface: #121b26;
+  --surface-2: #182433;
+  --surface-3: #1f2e41;
+  --border: #263649;
+  --text: #e4ebf2;
+  --muted: #8a9bb0;
+  --accent: #66c0f4;
+  --accent-strong: #1a9fff;
+  --sale-bg: #4c6b22;
+  --sale-text: #beee11;
+  --positive: #66c0f4;
+  --mixed: #b9a074;
+  --negative: #d0693b;
+  --danger: #e5534b;
+  color-scheme: dark;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-sale-bg: var(--sale-bg);
+  --color-sale-text: var(--sale-text);
+  --color-positive: var(--positive);
+  --color-mixed: var(--mixed);
+  --color-negative: var(--negative);
+  --color-danger: var(--danger);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  background: var(--bg);
+  color: var(--text);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+dialog::backdrop {
+  background: rgb(0 0 0 / 0.6);
+  backdrop-filter: blur(2px);
+}
+
+input[type="number"]::-webkit-inner-spin-button {
+  opacity: 0.4;
 }
