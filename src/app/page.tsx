@@ -53,10 +53,6 @@ export default async function Home() {
           </div>
         ))}
       </section>
-
-      <p className="text-center text-xs text-muted">
-        O YAGW não tem relação com a Valve ou a Steam. Os dados dos jogos vêm da loja pública da Steam.
-      </p>
     </main>
   );
 }
