@@ -112,7 +112,7 @@ function normalize(it: RawStoreItem, tagNames: Map<number, string>): StoreItem {
     file && it.assets?.asset_url_format ? `${ASSETS}/${it.assets.asset_url_format.replace("${FILENAME}", file)}` : null;
   const tags = [...(it.tags ?? [])]
     .sort((a, b) => b.weight - a.weight)
-    .flatMap((t) => (tagNames.has(t.tagid) ? [{ id: t.tagid, name: tagNames.get(t.tagid)! }] : []));
+    .flatMap((t) => (tagNames.has(t.tagid) ? [{ id: t.tagid, name: tagNames.get(t.tagid)!.trim() }] : []));
 
   return {
     appId: it.appid,
@@ -173,7 +173,7 @@ async function getTagNames(ids: number[]): Promise<Map<number, string>> {
     const data = await steamJson<{ response: { tags?: { tagid: number; name: string }[] } }>(
       `${API}/IStoreService/GetTagList/v1/?language=${LANGUAGE}`,
     );
-    const rows = (data.response.tags ?? []).map((t) => ({ id: t.tagid, name: t.name }));
+    const rows = (data.response.tags ?? []).map((t) => ({ id: t.tagid, name: t.name.trim() }));
     for (let i = 0; i < rows.length; i += 200) {
       await db
         .insert(steamTags)
