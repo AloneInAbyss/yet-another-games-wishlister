@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Wishlist } from "@/components/Wishlist";
 import { getSteamId, getUserByUsername } from "@/lib/accounts";
 import { getCurrentUser } from "@/lib/auth";
+import { getCollections } from "@/lib/collections-db";
 import { filtersFromParams } from "@/lib/filters";
 import { getWishlist } from "@/lib/wishlist";
 
@@ -29,10 +30,15 @@ export default async function UserListPage({ params, searchParams }: PageProps<"
   // Private lists look exactly like missing ones to everyone else.
   if (!owner || !owner.username || (!owner.listPublic && !isOwner)) notFound();
 
-  const [entries, steamId] = await Promise.all([getWishlist(owner.id), isOwner ? getSteamId(owner.id) : null]);
+  const [entries, collections, steamId] = await Promise.all([
+    getWishlist(owner.id),
+    getCollections(owner.id),
+    isOwner ? getSteamId(owner.id) : null,
+  ]);
   return (
     <Wishlist
       entries={entries}
+      collections={collections}
       owner={{
         username: owner.username,
         displayName: owner.displayName,

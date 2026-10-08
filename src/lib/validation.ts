@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { BULK_CHUNK_SIZE } from "./bulk-limits";
+import { COLOR_KEYS, MAX_COLLECTION_NAME, MAX_COLLECTIONS, type CollectionColor } from "./collections";
 
 export const MAX_ITEMS_PER_LIST = 500;
 export const MAX_IDS_PER_ADD = 50;
@@ -27,10 +28,19 @@ export const itemUpdate = z.object({
   notes: z.string().max(1000, "Notas com no máximo 1.000 caracteres").nullable(),
 });
 
+export const collectionName = z
+  .string()
+  .trim()
+  .min(1, "Dê um nome para a coleção")
+  .max(MAX_COLLECTION_NAME, `Use no máximo ${MAX_COLLECTION_NAME} caracteres`);
+export const collectionColor = z.enum(COLOR_KEYS as [CollectionColor, ...CollectionColor[]]);
+export const collectionIds = z.array(itemId).max(MAX_COLLECTIONS);
+
 export const restoreInput = itemUpdate.extend({
   appId: z.number().int().positive().max(100_000_000),
   position: z.number(),
   addedAt: z.number().int().positive().refine((t) => t <= Date.now() + 86_400_000),
+  collectionIds: collectionIds.default([]),
 });
 
 export const addGamesInput = z.union([z.string().max(5000), appIds]);

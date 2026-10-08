@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export type Tag = { id: number; name: string };
 
@@ -96,6 +96,37 @@ export const wishlistItems = sqliteTable(
   ],
 );
 
+/** User-created groups of games in their list ("Coleções"). A game can be in several. */
+export const collections = sqliteTable(
+  "collections",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    // A key of COLLECTION_COLORS (src/lib/collections.ts), not a raw color.
+    color: text("color").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [uniqueIndex("collections_user_name_idx").on(t.userId, t.name)],
+);
+
+export const collectionItems = sqliteTable(
+  "collection_items",
+  {
+    collectionId: integer("collection_id")
+      .notNull()
+      .references(() => collections.id, { onDelete: "cascade" }),
+    itemId: integer("item_id")
+      .notNull()
+      .references(() => wishlistItems.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.collectionId, t.itemId] }), index("collection_items_item_idx").on(t.itemId)],
+);
+
 /** Names of Steam tags in Portuguese, refreshed when an unknown tag shows up. */
 export const steamTags = sqliteTable("steam_tags", {
   id: integer("id").primaryKey(),
@@ -118,3 +149,4 @@ export const appState = sqliteTable("app_state", {
 export type User = typeof users.$inferSelect;
 export type Game = typeof games.$inferSelect;
 export type WishlistItem = typeof wishlistItems.$inferSelect;
+export type Collection = typeof collections.$inferSelect;

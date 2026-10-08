@@ -8,6 +8,8 @@ import * as accounts from "@/lib/accounts";
 import { destroySession, requireUser } from "@/lib/auth";
 import { UserError } from "@/lib/errors";
 import { appIdFromLine, resolveLines } from "@/lib/bulk-resolve";
+import type { CollectionColor } from "@/lib/collections";
+import * as collectionsDb from "@/lib/collections-db";
 import { enforce } from "@/lib/rate-limit";
 import { fetchSteamProfile, parseAppIds, parseProfileInput } from "@/lib/steam";
 import * as v from "@/lib/validation";
@@ -101,11 +103,59 @@ export async function restoreItem(data: {
   durationHours: number | null;
   notes: string | null;
   addedAt: number;
+  collectionIds?: number[];
 }) {
   return run(async (user) => {
     await enforce("mutate", user.id);
-    const input = parse(v.restoreInput, data);
-    await wishlist.restoreItem(user.id, { ...input, notes: input.notes?.trim() || null, addedAt: new Date(input.addedAt) });
+    const { collectionIds, ...input } = parse(v.restoreInput, data);
+    await wishlist.restoreItem(
+      user.id,
+      { ...input, notes: input.notes?.trim() || null, addedAt: new Date(input.addedAt) },
+      collectionIds,
+    );
+    return null;
+  });
+}
+
+export async function createCollection(name: string, color?: CollectionColor) {
+  return run(async (user) => {
+    await enforce("mutate", user.id);
+    return collectionsDb.createCollection(
+      user.id,
+      parse(v.collectionName, name),
+      color == null ? undefined : parse(v.collectionColor, color),
+    );
+  });
+}
+
+export async function updateCollection(id: number, data: { name?: string; color?: CollectionColor }) {
+  return run(async (user) => {
+    await enforce("mutate", user.id);
+    await collectionsDb.updateCollection(user.id, parse(v.itemId, id), {
+      ...(data.name != null && { name: parse(v.collectionName, data.name) }),
+      ...(data.color != null && { color: parse(v.collectionColor, data.color) }),
+    });
+    return null;
+  });
+}
+
+export async function deleteCollection(id: number) {
+  return run(async (user) => {
+    await enforce("mutate", user.id);
+    await collectionsDb.deleteCollection(user.id, parse(v.itemId, id));
+    return null;
+  });
+}
+
+export async function setItemInCollection(itemId: number, collectionId: number, member: boolean) {
+  return run(async (user) => {
+    await enforce("mutate", user.id);
+    await collectionsDb.setItemInCollection(
+      user.id,
+      parse(v.itemId, itemId),
+      parse(v.itemId, collectionId),
+      member === true,
+    );
     return null;
   });
 }

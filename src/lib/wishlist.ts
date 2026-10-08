@@ -1,7 +1,8 @@
 import "server-only";
 import { and, asc, count, eq, inArray, isNull, lt, max, min, notInArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { games, sessions, wishlistItems, type Game } from "@/db/schema";
+import { collectionItems, games, sessions, wishlistItems, type Game } from "@/db/schema";
+import { getItemCollections, linkItem } from "./collections-db";
 import { SteamUnavailableError, UserError } from "./errors";
 import { pruneRateLimits } from "./rate-limit";
 import { fetchItems, fetchWishlist, type StoreItem } from "./steam";
@@ -16,22 +17,27 @@ export type WishlistEntry = {
   durationHours: number | null;
   notes: string | null;
   addedAt: Date;
+  collectionIds: number[];
   game: Game;
 };
 
 export async function getWishlist(userId: string): Promise<WishlistEntry[]> {
-  const rows = await db
-    .select()
-    .from(wishlistItems)
-    .innerJoin(games, eq(games.appId, wishlistItems.appId))
-    .where(eq(wishlistItems.userId, userId))
-    .orderBy(asc(wishlistItems.position));
+  const [rows, itemCollections] = await Promise.all([
+    db
+      .select()
+      .from(wishlistItems)
+      .innerJoin(games, eq(games.appId, wishlistItems.appId))
+      .where(eq(wishlistItems.userId, userId))
+      .orderBy(asc(wishlistItems.position)),
+    getItemCollections(userId),
+  ]);
   return rows.map(({ wishlist_items: item, games: game }) => ({
     id: item.id,
     position: item.position,
     durationHours: item.durationHours,
     notes: item.notes,
     addedAt: item.addedAt,
+    collectionIds: itemCollections.get(item.id) ?? [],
     game,
   }));
 }
@@ -126,13 +132,19 @@ export async function importSteamWishlist(userId: string, steamId: string): Prom
 const ownItem = (userId: string, id: number) => and(eq(wishlistItems.id, id), eq(wishlistItems.userId, userId));
 
 export async function removeItem(userId: string, id: number) {
-  await db.delete(wishlistItems).where(ownItem(userId, id));
+  const item = await db.query.wishlistItems.findFirst({ where: ownItem(userId, id) });
+  if (!item) return;
+  await db.batch([
+    db.delete(collectionItems).where(eq(collectionItems.itemId, id)),
+    db.delete(wishlistItems).where(eq(wishlistItems.id, id)),
+  ]);
 }
 
 /** Puts back an item the user just removed, with its old position, duration and notes. */
 export async function restoreItem(
   userId: string,
   data: { appId: number; position: number; durationHours: number | null; notes: string | null; addedAt: Date },
+  collectionIds: number[] = [],
 ) {
   const [{ total }] = await db.select({ total: count() }).from(wishlistItems).where(eq(wishlistItems.userId, userId));
   if (total >= MAX_ITEMS_PER_LIST) throw new UserError(`Sua lista já tem ${MAX_ITEMS_PER_LIST} jogos.`);
@@ -140,7 +152,12 @@ export async function restoreItem(
   if (!(await ensureGames([data.appId], FRESH_FOR_IMPORT_MS)).has(data.appId)) {
     throw new UserError("Esse jogo não foi encontrado na Steam.");
   }
-  await db.insert(wishlistItems).values({ userId, ...data }).onConflictDoNothing();
+  const [restored] = await db
+    .insert(wishlistItems)
+    .values({ userId, ...data })
+    .onConflictDoNothing()
+    .returning({ id: wishlistItems.id });
+  if (restored) await linkItem(userId, restored.id, collectionIds);
 }
 
 export async function updateItem(

@@ -18,6 +18,10 @@ Repositório: https://github.com/AloneInAbyss/yet-another-games-wishlister
   para conferir e não encontrados) e adiciona os escolhidos. Preço em R$, desconto, tags, acesso
   antecipado, lançamento e avaliações vêm da Steam.
 - **Seus campos**: duração (horas) e notas, pelo ícone de lápis, com atalho para o HowLongToBeat.
+- **Coleções**: grupos criados pela pessoa (ex.: "Para jogar com Daniel"), com cor escolhida de uma
+  paleta. Um jogo pode estar em várias; o "+ coleção" em cada jogo marca/desmarca e cria novas, e
+  "Gerenciar coleções" renomeia, troca a cor e exclui. Aparecem para quem vê a lista e podem ser
+  usadas como filtro (inclusive em links compartilhados).
 - **Prioridade**: com a ordenação "Prioridade", arraste os jogos pela alça à esquerda ou use
   "Mover para o topo".
 - **Filtros**: faixa de preço, só em promoção, % mínima de avaliações positivas, acesso antecipado,
@@ -48,8 +52,8 @@ em produção a rota sempre responde 404).
 ## Estrutura
 
 - `src/db/schema.ts`: `users`, `accounts` (Steam), `sessions`, `wishlist_items` (dados de cada
-  pessoa), `games` (cache dos dados da Steam compartilhado entre todas as listas), `steam_tags`,
-  `rate_limits` e `app_state`.
+  pessoa), `collections` e `collection_items` (coleções), `games` (cache dos dados da Steam compartilhado
+  entre todas as listas), `steam_tags`, `rate_limits` e `app_state`.
 - `src/lib/steam.ts`: chamadas à Steam (busca, dados em lote de até 100 jogos, tags, wishlist, perfil).
 - `src/lib/steam-client.ts`: por onde passam todas as chamadas à Steam. Limita o volume, tenta de novo
   quando a Steam limita e pausa tudo por alguns minutos se ela continuar recusando.

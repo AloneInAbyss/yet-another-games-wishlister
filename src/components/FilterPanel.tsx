@@ -1,12 +1,24 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { DEFAULT_FILTERS, isFiltering, type Filters, type ReleaseFilter, type TagMode, type TriState } from "@/lib/filters";
+import type { CollectionInfo } from "@/lib/collections";
+import {
+  DEFAULT_FILTERS,
+  isFiltering,
+  type Filters,
+  type ReleaseFilter,
+  type TagMode,
+  type TriState,
+} from "@/lib/filters";
+import { CollectionPill } from "./CollectionChips";
 
 type Props = {
   filters: Filters;
   onChange: (patch: Partial<Filters>) => void;
   tags: { name: string; count: number }[];
+  collections: CollectionInfo[];
+  /** Only for the list owner. */
+  onManageCollections?: () => void;
 };
 
 const TOP_TAGS = 15;
@@ -64,7 +76,13 @@ function Segmented<T extends string>({
   );
 }
 
-export function FilterPanel({ filters, onChange, tags }: Props) {
+export function FilterPanel({ filters, onChange, tags, collections, onManageCollections }: Props) {
+  const toggleCollection = (id: number) =>
+    onChange({
+      collections: filters.collections.includes(id)
+        ? filters.collections.filter((c) => c !== id)
+        : [...filters.collections, id],
+    });
   const [showAllTags, setShowAllTags] = useState(false);
   const toggleTag = (name: string) =>
     onChange({ tags: filters.tags.includes(name) ? filters.tags.filter((t) => t !== name) : [...filters.tags, name] });
@@ -133,7 +151,11 @@ export function FilterPanel({ filters, onChange, tags }: Props) {
         </div>
         <div className="flex flex-wrap gap-1.5">
           {["80", "90", "95"].map((v) => (
-            <Chip key={v} active={filters.minReview === v} onClick={() => onChange({ minReview: filters.minReview === v ? "" : v })}>
+            <Chip
+              key={v}
+              active={filters.minReview === v}
+              onClick={() => onChange({ minReview: filters.minReview === v ? "" : v })}
+            >
               {v}%+
             </Chip>
           ))}
@@ -163,6 +185,42 @@ export function FilterPanel({ filters, onChange, tags }: Props) {
           ]}
         />
       </Section>
+
+      {(collections.length > 0 || onManageCollections) && (
+        <Section title="Coleções">
+          {collections.length === 0 && (
+            <p className="text-sm text-muted">Crie coleções pelo “+ coleção” em cada jogo.</p>
+          )}
+          {filters.collections.length > 1 && (
+            <Segmented<TagMode>
+              value={filters.collectionMode}
+              onChange={(collectionMode) => onChange({ collectionMode })}
+              options={[
+                { value: "all", label: "Todas" },
+                { value: "any", label: "Qualquer uma" },
+              ]}
+            />
+          )}
+          <div className="flex flex-wrap gap-1.5">
+            {collections.map((c) => (
+              <CollectionPill
+                key={c.id}
+                name={c.name}
+                color={c.color}
+                active={filters.collections.includes(c.id)}
+                onClick={() => toggleCollection(c.id)}
+              >
+                <span className="opacity-60">{c.count}</span>
+              </CollectionPill>
+            ))}
+          </div>
+          {onManageCollections && (
+            <button type="button" onClick={onManageCollections} className="text-xs text-accent hover:underline">
+              Gerenciar coleções
+            </button>
+          )}
+        </Section>
+      )}
 
       <Section title="Tags">
         {tags.length === 0 && <p className="text-sm text-muted">Nenhuma tag ainda.</p>}

@@ -1,7 +1,7 @@
 import "server-only";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { accounts, sessions, users, wishlistItems, type User } from "@/db/schema";
+import { accounts, collectionItems, collections, sessions, users, wishlistItems, type User } from "@/db/schema";
 import { createSession, getCurrentUser, randomId } from "./auth";
 import { UserError } from "./errors";
 import { enforce } from "./rate-limit";
@@ -102,7 +102,12 @@ export async function setListVisibility(userId: string, listPublic: boolean) {
 
 export async function deleteUser(userId: string) {
   // Explicit deletes: SQLite only cascades when foreign keys are enforced on the connection.
+  const userItems = db.select({ id: wishlistItems.id }).from(wishlistItems).where(eq(wishlistItems.userId, userId));
+  const userCollections = db.select({ id: collections.id }).from(collections).where(eq(collections.userId, userId));
   await db.batch([
+    db.delete(collectionItems).where(inArray(collectionItems.itemId, userItems)),
+    db.delete(collectionItems).where(inArray(collectionItems.collectionId, userCollections)),
+    db.delete(collections).where(eq(collections.userId, userId)),
     db.delete(wishlistItems).where(eq(wishlistItems.userId, userId)),
     db.delete(sessions).where(eq(sessions.userId, userId)),
     db.delete(accounts).where(eq(accounts.userId, userId)),

@@ -6,6 +6,9 @@ import { CSS } from "@dnd-kit/utilities";
 import type { Game } from "@/db/schema";
 import { EARLY_ACCESS_TAG_ID, formatHours, formatPrice, reviewLabel, reviewTone, storeUrl } from "@/lib/format";
 import type { WishlistEntry } from "@/lib/wishlist";
+import type { CollectionInfo } from "@/lib/collections";
+import { CollectionPill } from "./CollectionChips";
+import { CollectionMenu } from "./CollectionMenu";
 import { ClockIcon, GripIcon, PencilIcon, RefreshIcon, TopIcon, TrashIcon, UndoIcon } from "./Icons";
 
 export type RowActions = {
@@ -15,6 +18,10 @@ export type RowActions = {
   onRefresh: (entry: WishlistEntry) => void;
   onRemove: (entry: WishlistEntry) => void;
   onRestore: (entry: WishlistEntry) => void;
+  onToggleCollection: (entry: WishlistEntry, collectionId: number, member: boolean) => void;
+  /** Creates a collection and puts this game in it. Resolves to whether it worked. */
+  onCreateCollection: (entry: WishlistEntry, name: string) => Promise<boolean>;
+  onManageCollections: () => void;
 };
 
 type Props = {
@@ -28,6 +35,8 @@ type Props = {
   draggable: boolean;
   isOwner: boolean;
   busy: boolean;
+  /** All collections of the list owner, to show this game's ones by name and color. */
+  collections: CollectionInfo[];
   actions: RowActions;
 };
 
@@ -157,6 +166,7 @@ export function GameRow({
   draggable,
   isOwner,
   busy,
+  collections,
   actions,
 }: Props) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
@@ -167,6 +177,7 @@ export function GameRow({
   const pct = game.reviewPercent;
   const release = game.releaseDateText;
   const setRank = (n: number) => actions.onSetRank(entry, n);
+  const myCollections = collections.filter((c) => entry.collectionIds.includes(c.id));
 
   return (
     <li
@@ -294,12 +305,26 @@ export function GameRow({
             )}
           </div>
 
-          <div className="hidden flex-wrap gap-1 sm:flex">
+          {/* Collections (colored, also on mobile) come before the grey Steam tags (desktop only). */}
+          <div className="flex flex-wrap items-center gap-1">
+            {myCollections.map((c) => (
+              <CollectionPill key={c.id} name={c.name} color={c.color} />
+            ))}
+            {isOwner && !removed && (
+              <CollectionMenu
+                collections={collections}
+                selected={entry.collectionIds}
+                compact={myCollections.length > 0}
+                onToggle={(id, member) => actions.onToggleCollection(entry, id, member)}
+                onCreate={(name) => actions.onCreateCollection(entry, name)}
+                onManage={actions.onManageCollections}
+              />
+            )}
             {game.tags
               .filter((t) => t.id !== EARLY_ACCESS_TAG_ID)
               .slice(0, TAGS_IN_ROW)
               .map((t) => (
-                <span key={t.id} className="rounded bg-surface-3 px-1.5 py-px text-[11px] text-muted">
+                <span key={t.id} className="hidden rounded bg-surface-3 px-1.5 py-px text-[11px] text-muted sm:inline">
                   {t.name}
                 </span>
               ))}

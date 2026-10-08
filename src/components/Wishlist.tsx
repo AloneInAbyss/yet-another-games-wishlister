@@ -11,17 +11,24 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
-import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import Link from "next/link";
 import { useEffect, useMemo, useOptimistic, useState, useTransition } from "react";
 import * as actions from "@/app/actions";
 import type { ActionResult } from "@/app/actions";
 import { applyFilters, filtersToSearch, isFiltering, SORTS, type Filters, type SortKey } from "@/lib/filters";
 import { EARLY_ACCESS_TAG_ID, formatPrice } from "@/lib/format";
+import type { CollectionInfo } from "@/lib/collections";
 import type { WishlistEntry } from "@/lib/wishlist";
 import { AddGamesDialog } from "./AddGamesDialog";
 import { EditItemDialog } from "./EditItemDialog";
 import { ImportSteamDialog } from "./ImportSteamDialog";
+import { CollectionsDialog } from "./CollectionsDialog";
 import { FilterPanel } from "./FilterPanel";
 import { GameRow, type RowActions } from "./GameRow";
 import { FilterIcon, LinkIcon, PlusIcon, SearchIcon, SortIcon, SteamIcon } from "./Icons";
@@ -30,6 +37,7 @@ export type ListOwner = { username: string; displayName: string; avatarUrl: stri
 
 type Props = {
   entries: WishlistEntry[];
+  collections: CollectionInfo[];
   owner: ListOwner;
   isOwner: boolean;
   viewerUsername: string | null;
@@ -39,7 +47,10 @@ type Props = {
   openImport: boolean;
 };
 
-type OptimisticChange = { type: "move"; id: number; position: number } | { type: "remove"; id: number };
+type OptimisticChange =
+  | { type: "move"; id: number; position: number }
+  | { type: "remove"; id: number }
+  | { type: "collection"; id: number; collectionId: number; member: boolean };
 
 const updatedFormat = new Intl.DateTimeFormat("pt-BR", {
   day: "2-digit",
@@ -49,7 +60,17 @@ const updatedFormat = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "America/Sao_Paulo",
 });
 
-export function Wishlist({ entries, owner, isOwner, viewerUsername, steamConnected, initialFilters, welcome, openImport }: Props) {
+export function Wishlist({
+  entries,
+  collections,
+  owner,
+  isOwner,
+  viewerUsername,
+  steamConnected,
+  initialFilters,
+  welcome,
+  openImport,
+}: Props) {
   const [filters, setFilters] = useState(initialFilters);
   const [showFilters, setShowFilters] = useState(false);
   const [editing, setEditing] = useState<WishlistEntry | null>(null);
@@ -62,11 +83,17 @@ export function Wishlist({ entries, owner, isOwner, viewerUsername, steamConnect
   const [toast, setToast] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
-  const [items, applyOptimistic] = useOptimistic(entries, (state: WishlistEntry[], change: OptimisticChange) =>
-    change.type === "remove"
-      ? state.filter((e) => e.id !== change.id)
-      : state.map((e) => (e.id === change.id ? { ...e, position: change.position } : e)),
-  );
+  const [managingCollections, setManagingCollections] = useState(false);
+
+  const [items, applyOptimistic] = useOptimistic(entries, (state: WishlistEntry[], change: OptimisticChange) => {
+    if (change.type === "remove") return state.filter((e) => e.id !== change.id);
+    return state.map((e) => {
+      if (e.id !== change.id) return e;
+      if (change.type === "move") return { ...e, position: change.position };
+      const others = e.collectionIds.filter((c) => c !== change.collectionId);
+      return { ...e, collectionIds: change.member ? [...others, change.collectionId] : others };
+    });
+  });
 
   // Keep the URL in sync so a filtered view can be shared as a link.
   useEffect(() => {
@@ -79,11 +106,22 @@ export function Wishlist({ entries, owner, isOwner, viewerUsername, steamConnect
     return () => clearTimeout(t);
   }, [toast]);
 
+  // Collection counts follow the (optimistic) items, so they update right away.
+  const collectionsWithCounts = useMemo(
+    () => collections.map((c) => ({ ...c, count: items.filter((e) => e.collectionIds.includes(c.id)).length })),
+    [collections, items],
+  );
+  // Ignore filters for collections that don't exist (deleted, or an old link).
+  const effectiveFilters = useMemo(() => {
+    const known = new Set(collections.map((c) => c.id));
+    return { ...filters, collections: filters.collections.filter((id) => known.has(id)) };
+  }, [filters, collections]);
+
   const removedIds = useMemo(() => new Set(removed.map((e) => e.id)), [removed]);
   // Removed games keep their old position, so they show up exactly where they were.
   const visible = useMemo(
-    () => applyFilters([...items.filter((e) => !removedIds.has(e.id)), ...removed], filters),
-    [items, removed, removedIds, filters],
+    () => applyFilters([...items.filter((e) => !removedIds.has(e.id)), ...removed], effectiveFilters),
+    [items, removed, removedIds, effectiveFilters],
   );
   const liveVisible = useMemo(() => visible.filter((e) => !removedIds.has(e.id)), [visible, removedIds]);
   const ranks = useMemo(
@@ -201,6 +239,21 @@ export function Wishlist({ entries, owner, isOwner, viewerUsername, steamConnect
       placeBetween(entry.id, moved[to - 1] ?? null, moved[to + 1] ?? null);
       setHighlightId(entry.id);
     },
+    onToggleCollection: (entry, collectionId, member) =>
+      startTransition(async () => {
+        applyOptimistic({ type: "collection", id: entry.id, collectionId, member });
+        await run([], () => actions.setItemInCollection(entry.id, collectionId, member), "Não foi possível salvar");
+      }),
+    onCreateCollection: async (entry, name) => {
+      const r = await actions.createCollection(name).catch(() => null);
+      if (!r || !r.ok) {
+        setToast(r && !r.ok ? r.error : "Não foi possível criar a coleção");
+        return false;
+      }
+      rowActions.onToggleCollection(entry, r.data.id, true);
+      return true;
+    },
+    onManageCollections: () => setManagingCollections(true),
     onRefresh: (entry) =>
       startTransition(async () => {
         await run([entry.id], () => actions.refreshItem(entry.id), "Falha ao atualizar");
@@ -224,6 +277,7 @@ export function Wishlist({ entries, owner, isOwner, viewerUsername, steamConnect
               durationHours: entry.durationHours,
               notes: entry.notes,
               addedAt: entry.addedAt.getTime(),
+              collectionIds: entry.collectionIds,
             }),
           "Não foi possível restaurar",
         );
@@ -243,6 +297,7 @@ export function Wishlist({ entries, owner, isOwner, viewerUsername, steamConnect
     filters.earlyAccess !== "any",
     filters.release !== "any",
     filters.tags.length,
+    effectiveFilters.collections.length,
   ].filter(Boolean).length;
 
   const buttonClass =
@@ -315,7 +370,13 @@ export function Wishlist({ entries, owner, isOwner, viewerUsername, steamConnect
         <aside
           className={`${showFilters ? "block" : "hidden"} rounded-xl border border-border bg-surface p-4 lg:sticky lg:top-6 lg:block lg:w-64 lg:shrink-0`}
         >
-          <FilterPanel filters={filters} onChange={patchFilters} tags={tags} />
+          <FilterPanel
+            filters={effectiveFilters}
+            onChange={patchFilters}
+            tags={tags}
+            collections={collectionsWithCounts}
+            onManageCollections={isOwner ? () => setManagingCollections(true) : undefined}
+          />
         </aside>
 
         <main className="min-w-0 flex-1">
@@ -362,7 +423,9 @@ export function Wishlist({ entries, owner, isOwner, viewerUsername, steamConnect
 
           <div className="mb-3 flex flex-wrap justify-between gap-2 text-xs text-muted">
             <span>
-              {isFiltering(filters) ? `${liveVisible.length} de ${items.length} jogos` : `${liveVisible.length} jogos`}
+              {isFiltering(effectiveFilters)
+                ? `${liveVisible.length} de ${items.length} jogos`
+                : `${liveVisible.length} jogos`}
               {stats.onSale > 0 && ` · ${stats.onSale} em promoção`}
             </span>
             {stats.total > 0 && (
@@ -419,6 +482,7 @@ export function Wishlist({ entries, owner, isOwner, viewerUsername, steamConnect
                       draggable={canDrag}
                       isOwner={isOwner}
                       busy={busyIds.has(entry.id)}
+                      collections={collections}
                       actions={rowActions}
                     />
                   ))}
@@ -434,6 +498,13 @@ export function Wishlist({ entries, owner, isOwner, viewerUsername, steamConnect
         <ImportSteamDialog steamConnected={steamConnected} welcome={welcome} onClose={() => setImporting(false)} />
       )}
       {editing && <EditItemDialog entry={editing} onClose={() => setEditing(null)} />}
+      {managingCollections && (
+        <CollectionsDialog
+          collections={collectionsWithCounts}
+          onClose={() => setManagingCollections(false)}
+          onDeleted={(id) => patchFilters({ collections: filters.collections.filter((c) => c !== id) })}
+        />
+      )}
       {toast && (
         <div
           role="status"
