@@ -123,7 +123,17 @@ function Price({ game }: { game: Game }) {
   );
 }
 
-function IconButton({ label, onClick, danger, children }: { label: string; onClick: () => void; danger?: boolean; children: React.ReactNode }) {
+function IconButton({
+  label,
+  onClick,
+  danger,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <button
       type="button"
@@ -204,44 +214,50 @@ export function GameRow({
         </div>
       )}
 
-      <a
-        href={storeUrl(game.appId)}
-        target="_blank"
-        rel="noreferrer"
-        className={`shrink-0 self-start sm:self-center ${removed ? "opacity-40 grayscale" : ""}`}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={game.capsuleImage ?? game.headerImage ?? ""}
-          alt=""
-          loading="lazy"
-          className="aspect-[231/87] w-28 rounded bg-surface-3 object-cover sm:w-44"
-        />
-      </a>
-
-      <div className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
-        <div className={`min-w-0 flex-1 space-y-1 ${removed ? "opacity-40" : ""}`}>
+      {/* Mobile: cover and price side by side, text on the line below. Desktop (sm): one row as before. */}
+      <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 sm:flex sm:items-center sm:gap-4">
+        <a
+          href={storeUrl(game.appId)}
+          target="_blank"
+          rel="noreferrer"
+          className={`col-start-1 row-start-1 block sm:-mr-1 sm:shrink-0 ${removed ? "opacity-40 grayscale" : ""}`}
+        >
+          {/* The wider header image keeps the bigger mobile cover sharp; desktop uses the small capsule. */}
+          <picture className="block">
+            {game.capsuleImage && <source media="(min-width: 640px)" srcSet={game.capsuleImage} />}
+            <img
+              src={game.headerImage ?? game.capsuleImage ?? ""}
+              alt=""
+              loading="lazy"
+              className="aspect-[460/215] w-full rounded bg-surface-3 object-cover sm:aspect-[231/87] sm:w-44"
+            />
+          </picture>
+        </a>
+        <div className={`col-span-2 row-start-2 min-w-0 space-y-1 sm:flex-1 ${removed ? "opacity-40" : ""}`}>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            {showRank && !removed && (
-              <span className="sm:hidden">
-                <Rank
-                  rank={rank}
-                  total={total}
-                  editable={isOwner}
-                  onSubmit={setRank}
-                  prefix="#"
-                  className="px-1 font-mono text-xs text-muted"
-                />
-              </span>
-            )}
-            <a
-              href={storeUrl(game.appId)}
-              target="_blank"
-              rel="noreferrer"
-              className={`truncate font-medium hover:text-accent ${removed ? "line-through" : ""}`}
-            >
-              {game.name}
-            </a>
+            {/* Rank and name stay on one line; a long name is truncated instead of wrapping below "#3". */}
+            <span className="flex min-w-0 max-w-full items-center gap-1">
+              {showRank && !removed && (
+                <span className="shrink-0 sm:hidden">
+                  <Rank
+                    rank={rank}
+                    total={total}
+                    editable={isOwner}
+                    onSubmit={setRank}
+                    prefix="#"
+                    className="px-1 font-mono text-xs text-muted"
+                  />
+                </span>
+              )}
+              <a
+                href={storeUrl(game.appId)}
+                target="_blank"
+                rel="noreferrer"
+                className={`truncate font-medium hover:text-accent ${removed ? "line-through" : ""}`}
+              >
+                {game.name}
+              </a>
+            </span>
             {game.isEarlyAccess && (
               <span className="rounded bg-amber-500/15 px-1.5 py-px text-[11px] font-medium text-amber-300">
                 Acesso antecipado
@@ -293,7 +309,7 @@ export function GameRow({
         </div>
 
         {removed ? (
-          <div className="flex items-center justify-between gap-3 sm:justify-end">
+          <div className="col-start-2 row-start-1 flex flex-col items-end justify-center gap-2 sm:flex-row sm:items-center sm:gap-3">
             <span className="text-xs text-muted">Removido da lista</span>
             <button
               type="button"
@@ -305,7 +321,7 @@ export function GameRow({
             </button>
           </div>
         ) : (
-          <div className="flex flex-wrap items-center justify-between gap-2 sm:flex-nowrap sm:justify-end">
+          <div className="col-start-2 row-start-1 flex flex-col items-end justify-between gap-2 sm:flex-row sm:items-center sm:justify-end">
             <Price game={game} />
             {isOwner && (
               <div className="flex items-center sm:opacity-0 sm:transition-opacity sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
