@@ -305,26 +305,30 @@ export function GameRow({
             )}
           </div>
 
-          {/* Collections (colored, also on mobile) come before the grey Steam tags (desktop only). */}
-          <div className="flex flex-wrap items-center gap-1">
-            {myCollections.map((c) => (
-              <CollectionPill key={c.id} name={c.name} color={c.color} />
-            ))}
-            {isOwner && !removed && (
-              <CollectionMenu
-                collections={collections}
-                selected={entry.collectionIds}
-                compact={myCollections.length > 0}
-                onToggle={(id, member) => actions.onToggleCollection(entry, id, member)}
-                onCreate={(name) => actions.onCreateCollection(entry, name)}
-                onManage={actions.onManageCollections}
-              />
-            )}
+          {/* User collections (colored, also on mobile); Steam tags get their own line below (desktop only). */}
+          {(myCollections.length > 0 || (isOwner && !removed)) && (
+            <div className="flex flex-wrap items-center gap-1">
+              {myCollections.map((c) => (
+                <CollectionPill key={c.id} name={c.name} color={c.color} />
+              ))}
+              {isOwner && !removed && (
+                <CollectionMenu
+                  collections={collections}
+                  selected={entry.collectionIds}
+                  compact={myCollections.length > 0}
+                  onToggle={(id, member) => actions.onToggleCollection(entry, id, member)}
+                  onCreate={(name) => actions.onCreateCollection(entry, name)}
+                  onManage={actions.onManageCollections}
+                />
+              )}
+            </div>
+          )}
+          <div className="hidden flex-wrap gap-1 sm:flex">
             {game.tags
               .filter((t) => t.id !== EARLY_ACCESS_TAG_ID)
               .slice(0, TAGS_IN_ROW)
               .map((t) => (
-                <span key={t.id} className="hidden rounded bg-surface-3 px-1.5 py-px text-[11px] text-muted sm:inline">
+                <span key={t.id} className="rounded bg-surface-3 px-1.5 py-px text-[11px] text-muted">
                   {t.name}
                 </span>
               ))}
