@@ -13,8 +13,10 @@ Repositório: https://github.com/AloneInAbyss/yet-another-games-wishlister
 - **Importar da Steam**: soma a wishlist da Steam (da conta conectada ou de um link de perfil) ao fim
   da lista, na ordem da Steam, sem remover nada. A wishlist precisa estar pública.
 - **Adicionar jogos**: buscar pelo nome ou colar um ou vários links da loja
-  (`store.steampowered.com/app/...`). Preço em R$, desconto, tags, acesso antecipado, lançamento e
-  avaliações vêm da Steam.
+  (`store.steampowered.com/app/...`). Na aba "Vários de uma vez" dá para colar até 50 nomes (um por
+  linha, por exemplo uma coluna do Notion): o site encontra cada jogo, mostra uma revisão (exatos,
+  para conferir e não encontrados) e adiciona os escolhidos. Preço em R$, desconto, tags, acesso
+  antecipado, lançamento e avaliações vêm da Steam.
 - **Seus campos**: duração (horas) e notas, pelo ícone de lápis, com atalho para o HowLongToBeat.
 - **Prioridade**: com a ordenação "Prioridade", arraste os jogos pela alça à esquerda ou use
   "Mover para o topo".

@@ -5,10 +5,12 @@ import { addGames } from "@/app/actions";
 import { describeAddResult, formatPrice } from "@/lib/format";
 import { parseAppIds } from "@/lib/app-ids";
 import type { SearchResult } from "@/lib/steam";
+import { BulkAddPanel } from "./BulkAddPanel";
 import { SearchIcon } from "./Icons";
 import { Modal } from "./Modal";
 
 export function AddGamesDialog({ existing, onClose }: { existing: Set<number>; onClose: () => void }) {
+  const [tab, setTab] = useState<"search" | "bulk">("search");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -64,8 +66,42 @@ export function AddGamesDialog({ existing, onClose }: { existing: Set<number>; o
   const visibleResults = query.trim().length >= 2 && !linkIds.length ? results : [];
 
   return (
-    <Modal title="Adicionar jogos" onClose={onClose}>
-      <div className="space-y-3">
+    <Modal
+      title="Adicionar jogos"
+      onClose={onClose}
+      size={tab === "bulk" ? "lg" : "md"}
+      closeOnBackdrop={tab === "search"}
+    >
+      <div role="tablist" className="mb-4 grid grid-cols-2 rounded-md border border-border bg-bg p-0.5 text-sm">
+        {(
+          [
+            ["search", "Buscar"],
+            ["bulk", "Vários de uma vez"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
+            onClick={() => setTab(id)}
+            className={`rounded px-3 py-1.5 transition-colors ${tab === id ? "bg-surface-3 text-text" : "text-muted hover:text-text"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {/* Kept mounted while hidden, so switching tabs doesn't lose the bulk review. */}
+      <div className={tab === "bulk" ? "" : "hidden"}>
+        <BulkAddPanel
+          existing={existing}
+          onSearchOne={(name) => {
+            setQuery(name);
+            setTab("search");
+          }}
+        />
+      </div>
+      <div className={`space-y-3 ${tab === "search" ? "" : "hidden"}`}>
         <div className="relative">
           <SearchIcon className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted" />
           <input

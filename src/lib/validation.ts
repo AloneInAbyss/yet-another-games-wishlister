@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { BULK_CHUNK_SIZE } from "./bulk-limits";
 
 export const MAX_ITEMS_PER_LIST = 500;
 export const MAX_IDS_PER_ADD = 50;
@@ -34,6 +35,11 @@ export const restoreInput = itemUpdate.extend({
 
 export const addGamesInput = z.union([z.string().max(5000), appIds]);
 export const profileInput = z.string().trim().max(200).optional();
+export const bulkLines = z
+  .array(z.string().trim().min(1).max(100, "Cada nome pode ter no máximo 100 caracteres"))
+  .min(1)
+  .max(BULK_CHUNK_SIZE);
+
 export const searchTerm = z.string().trim().min(2).max(100);
 
 /** Turns any display name into a valid username candidate (may still be taken). */

@@ -72,6 +72,12 @@ export async function ensureGames(appIds: number[], maxAgeMs: number): Promise<S
   return new Set(existing.map((g) => g.appId));
 }
 
+/** Cached store data for the given games (no Steam calls). */
+export async function getCachedGames(appIds: number[]): Promise<Game[]> {
+  if (!appIds.length) return [];
+  return db.select().from(games).where(inArray(games.appId, appIds));
+}
+
 export type AddResult = { added: number; skipped: number; overLimit: number; notFound: number };
 
 /** Appends games to the end of a user's list, in the given order, respecting the list limit. */

@@ -8,6 +8,8 @@ type Rule = { limit: number; windowSeconds: number };
 
 export const RULES = {
   search: { limit: 30, windowSeconds: 60 },
+  // Names looked up by "Vários de uma vez" (links/IDs don't count).
+  bulkSearch: { limit: 150, windowSeconds: 3600 },
   addGames: { limit: 100, windowSeconds: 3600 },
   importShort: { limit: 1, windowSeconds: 300 },
   importDaily: { limit: 10, windowSeconds: 86_400 },

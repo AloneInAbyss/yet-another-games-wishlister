@@ -7,6 +7,7 @@ import type { User } from "@/db/schema";
 import * as accounts from "@/lib/accounts";
 import { destroySession, requireUser } from "@/lib/auth";
 import { UserError } from "@/lib/errors";
+import { appIdFromLine, resolveLines } from "@/lib/bulk-resolve";
 import { enforce } from "@/lib/rate-limit";
 import { fetchSteamProfile, parseAppIds, parseProfileInput } from "@/lib/steam";
 import * as v from "@/lib/validation";
@@ -18,11 +19,11 @@ export type ActionResult<T = null> = { ok: true; data: T } | { ok: false; error:
  * Runs an action for the logged-in user and converts failures into a message for the UI.
  * (In production Next.js hides thrown error messages, so errors are returned instead.)
  */
-async function run<T>(fn: (user: User) => Promise<T>): Promise<ActionResult<T>> {
+async function run<T>(fn: (user: User) => Promise<T>, { readOnly = false } = {}): Promise<ActionResult<T>> {
   try {
     const user = await requireUser();
     const data = await fn(user);
-    if (user.username) revalidatePath(`/u/${user.username}`);
+    if (user.username && !readOnly) revalidatePath(`/u/${user.username}`);
     return { ok: true, data };
   } catch (e) {
     if (e instanceof UserError) return { ok: false, error: e.message };
@@ -49,6 +50,19 @@ export async function addGames(input: string | number[]) {
     await enforce("addGames", user.id, ids.length);
     return wishlist.addGames(user.id, ids);
   });
+}
+
+/** Looks up a chunk of typed names for the bulk-add review. Doesn't change the list. */
+export async function resolveGameNames(lines: string[]) {
+  return run(
+    async (user) => {
+      const input = parse(v.bulkLines, lines);
+      const names = input.filter((l) => appIdFromLine(l) == null).length;
+      if (names) await enforce("bulkSearch", user.id, names);
+      return resolveLines(input);
+    },
+    { readOnly: true },
+  );
 }
 
 export async function importSteamWishlist(profile?: string) {

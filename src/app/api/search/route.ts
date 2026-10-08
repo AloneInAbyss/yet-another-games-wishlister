@@ -1,12 +1,8 @@
-import { unstable_cache } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { UserError } from "@/lib/errors";
 import { enforce } from "@/lib/rate-limit";
-import { searchStore } from "@/lib/steam";
+import { cachedSearch } from "@/lib/steam-search";
 import { searchTerm } from "@/lib/validation";
-
-// Shared across server instances, so repeated searches don't hit Steam again.
-const cachedSearch = unstable_cache(searchStore, ["steam-search"], { revalidate: 3600 });
 
 export async function GET(request: Request) {
   const user = await getCurrentUser();
@@ -15,7 +11,7 @@ export async function GET(request: Request) {
   if (!parsed.success) return Response.json([]);
   try {
     await enforce("search", user.id);
-    return Response.json(await cachedSearch(parsed.data.toLowerCase().replace(/\s+/g, " ")));
+    return Response.json(await cachedSearch(parsed.data));
   } catch (e) {
     if (e instanceof UserError) return Response.json({ error: e.message }, { status: 429 });
     console.error(e);
